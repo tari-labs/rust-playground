@@ -5,6 +5,7 @@ import { changeEdition } from './actions';
 import { changeNightlyEdition } from './actions';
 import { Either as EitherConfig } from './ConfigElement';
 import MenuGroup from './MenuGroup';
+import MenuItem from './MenuItem';
 import { State } from './reducers';
 import { getEditionSet, isEditionAvailable } from './selectors';
 import { Edition } from './types';
@@ -28,6 +29,15 @@ const AdvancedOptionsMenu: React.SFC<AdvancedOptionsMenuProps> = props => (
         isNotDefault={props.isEditionSet}
         onChange={props.changeEdition} />
       {!props.isEditionAvailable && <EditionAside />}
+
+      <EitherConfig id="backtraces" name="Backtraces" a="On" b="Off" value="Off" onChange={console.log} />
+    </MenuGroup>
+    <MenuGroup title="Advanced options &mdash; All of them!">
+      <MenuItem>
+        <input className="advanced-options-menu__rustflags" type="text" placeholder="-C or -Z ..." />
+        For the most exotic of uses, it's also possible to manually set -C and -Z options.
+        Brought to you courtesy of RUSTFLAGS.
+      </MenuItem>
     </MenuGroup>
   </Fragment>
 );

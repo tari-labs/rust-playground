@@ -698,6 +698,11 @@ $header-transition: 0.2s ease-in-out;
     margin: 0.25em 0 1em 0;
     color: #888;
   }
+
+  &__rustflags {
+    width: 100%;
+    margin-bottom: 9px;
+  }
 }
 
 .config-element {
