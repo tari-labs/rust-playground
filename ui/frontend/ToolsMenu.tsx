@@ -1,8 +1,8 @@
 import React from 'react';
 import { connect } from 'react-redux';
 
-import ButtonMenuItem from './ButtonMenuItem';
 import MenuGroup from './MenuGroup';
+import ShortcutableMenuItem from './ShortcutableMenuItem';
 
 import {
   performClippy,
@@ -18,16 +18,18 @@ interface ToolsMenuProps {
 
 const ToolsMenu: React.SFC<ToolsMenuProps> = props => (
   <MenuGroup title="Tools">
-    <ButtonMenuItem
+    <ShortcutableMenuItem
       name="Rustfmt"
+      shortcut="Alt/Opt + F"
       onClick={() => { props.format(); props.close(); }}>
       Format this code with Rustfmt.
-    </ButtonMenuItem>
-    <ButtonMenuItem
+    </ShortcutableMenuItem>
+    <ShortcutableMenuItem
       name="Clippy"
+      shortcut="Alt/Opt + C"
       onClick={() => { props.clippy(); props.close(); }}>
       Catch common mistakes and improve the code using the Clippy linter.
-    </ButtonMenuItem>
+    </ShortcutableMenuItem>
   </MenuGroup>
 );
 

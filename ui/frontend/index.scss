@@ -771,6 +771,40 @@ $header-transition: 0.2s ease-in-out;
   }
 }
 
+.shortcut-item {
+  @include button-reset;
+  width: 100%;
+
+  transition: color $header-transition;
+
+  &:hover {
+    color: $header-tint;
+  }
+
+  &__header {
+    display: flex;
+  }
+
+  &__name {
+    @include menu-item-title;
+    flex: 1;
+  }
+
+  &__shortcut {
+    font-family: "Source Code Pro";
+
+    margin: 0 5px;
+
+    border: 1px solid $header-main-border;
+    border-radius: 4px;
+    padding: 0.1em 0.5em;
+
+    box-shadow: 0 1px 0px rgba(0, 0, 0, 0.1), 0 0 0 2px #fff inset;
+    background-color: #fafafa;
+    color: #888;
+  }
+}
+
 .header-button {
   height: 3em;
   padding: 0 1.25em;
