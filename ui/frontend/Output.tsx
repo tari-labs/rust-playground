@@ -182,12 +182,18 @@ const Gist: React.SFC<GistProps> = ({
     const newUsersPostCreateUrl = body ? u2.format(newUsersPostUrl) : null;
     const urloLink = newUsersPostCreateUrl ? <UserForumLink url={newUsersPostCreateUrl} /> : null;
 
+    const newIssueUrl = u2.parse('https://github.com/rust-lang/rust/issues/new', true);
+    newIssueUrl.query = { body };
+    const newIssueCreateUrl = body ? u2.format(newIssueUrl) : null;
+    const issueLink = newIssueCreateUrl ? <RustIssueLink url={newIssueCreateUrl} /> : null;
+
     return (
       <div className="output-gist">
         {loader}
         {permalink}
         {directLink}
         {urloLink}
+        {issueLink}
       </div>
     );
   } else {
@@ -215,6 +221,18 @@ const UserForumLink: React.SFC<UserForumLinkProps> = ({ url }) => (
   <p>
     <a href={url} target="_blank">
       Open a new thread in the Rust user forum
+    </a>
+  </p>
+);
+
+interface RustIssueLinkProps {
+  url: string;
+}
+
+const RustIssueLink: React.SFC<RustIssueLinkProps> = ({ url }) => (
+  <p>
+    <a href={url} target="_blank">
+      Open an issue on the Rust GitHub repository
     </a>
   </p>
 );
