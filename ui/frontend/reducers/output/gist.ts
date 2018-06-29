@@ -26,8 +26,8 @@ export default function gist(state = DEFAULT, action: Action): State {
 
     case ActionType.GistLoadSucceeded:
     case ActionType.GistSaveSucceeded: {
-      const { id, url, channel, mode, edition } = action;
-      return finish(state, { id, url, channel, mode, edition });
+      const { id, url, code, channel, mode, edition } = action;
+      return finish(state, { id, url, code, channel, mode, edition });
     }
 
     case ActionType.GistLoadFailed:

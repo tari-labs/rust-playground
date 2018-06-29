@@ -165,6 +165,8 @@ const Gist: React.SFC<GistProps> = ({
   channel,
   mode,
   edition,
+  code,
+  stderr,
 }) => {
   if (focus === 'gist') {
     const loader = (requestsInProgress > 0) ? <MyLoader /> : null;
@@ -172,11 +174,20 @@ const Gist: React.SFC<GistProps> = ({
     const permalink = permalinkUrl ? <p><a href={permalinkUrl}>Permalink to the playground</a></p> : null;
     const directLink = url ? (<p><a href={url}>Direct link to the gist</a></p>) : null;
 
+    const snippets = `\n\n\`\`\`rust\n${code}\n\`\`\`\n\nOutput:\n\`\`\`\n${stderr}\n\`\`\``;
+    const body = permalinkUrl ? `[Playground Link](${permalinkUrl})${snippets}` : null;
+
+    const newUsersPostUrl = u2.parse('https://users.rust-lang.org/new-topic', true);
+    newUsersPostUrl.query = { body };
+    const newUsersPostCreateUrl = body ? u2.format(newUsersPostUrl) : null;
+    const urloLink = newUsersPostCreateUrl ? <UserForumLink url={newUsersPostCreateUrl} /> : null;
+
     return (
       <div className="output-gist">
         {loader}
         {permalink}
         {directLink}
+        {urloLink}
       </div>
     );
   } else {
@@ -192,7 +203,21 @@ interface GistProps {
   channel?: Channel;
   mode?: Mode;
   edition?: Edition;
+  code?: string;
+  stderr?: string;
 }
+
+interface UserForumLinkProps {
+  url: string;
+}
+
+const UserForumLink: React.SFC<UserForumLinkProps> = ({ url }) => (
+  <p>
+    <a href={url} target="_blank">
+      Open a new thread in the Rust user forum
+    </a>
+  </p>
+);
 
 class Output extends React.PureComponent<OutputProps> {
   private focusClose = () => this.props.changeFocus(null);
