@@ -2,6 +2,7 @@ import * as qs from 'qs';
 import React from 'react';
 import { PrismCode } from 'react-prism';
 import { connect } from 'react-redux';
+import * as u2 from 'url';
 
 import { changeFocus } from './actions';
 import { State } from './reducers';
@@ -141,6 +142,21 @@ interface FormatProps {
   requestsInProgress: number;
 }
 
+const getPermalink = ({ id, channel, mode, edition }) => {
+  // FIXME: extract to the state and set at application boot time
+  const base = window.location.href;
+
+  const u = u2.parse(base, true);
+  delete u.search;
+  u.query = {
+    gist: id,
+    version: channel,
+    mode,
+    edition,
+  };
+  return u2.format(u);
+};
+
 const Gist: React.SFC<GistProps> = ({
   focus,
   requestsInProgress,
@@ -152,16 +168,8 @@ const Gist: React.SFC<GistProps> = ({
 }) => {
   if (focus === 'gist') {
     const loader = (requestsInProgress > 0) ? <MyLoader /> : null;
-    let permalink = null;
-    if (id) {
-      const q = {
-        gist: id,
-        version: channel,
-        mode,
-        edition,
-      };
-      permalink = <p><a href={`/?${qs.stringify(q)}`}>Permalink to the playground</a></p>;
-    }
+    const permalinkUrl = id ? getPermalink({ id, channel, mode, edition }) : null;
+    const permalink = permalinkUrl ? <p><a href={permalinkUrl}>Permalink to the playground</a></p> : null;
     const directLink = url ? (<p><a href={url}>Direct link to the gist</a></p>) : null;
 
     return (
