@@ -1,3 +1,4 @@
+#![recursion_limit="128"]
 #![feature(try_from)]
 
 #[macro_use]
@@ -11,8 +12,6 @@ extern crate playground_middleware;
 extern crate bodyparser;
 extern crate serde;
 extern crate serde_json;
-#[macro_use]
-extern crate serde_derive;
 extern crate mktemp;
 #[macro_use]
 extern crate quick_error;
@@ -24,9 +23,18 @@ extern crate regex;
 extern crate rustc_demangle;
 extern crate hubcaps;
 extern crate tokio;
+#[macro_use]
+extern crate futures;
 extern crate hyper;
 extern crate hyper_tls;
 extern crate openssl_probe;
+#[macro_use]
+extern crate tower_web;
+extern crate http;
+extern crate mime_guess;
+
+#[macro_use]
+extern crate serde_derive;
 
 use std::{
     convert::TryFrom,
@@ -42,6 +50,7 @@ mod asm_cleanup;
 mod gist;
 mod iron_web_server;
 mod sandbox;
+mod tower_web_server;
 
 const ONE_HOUR_IN_SECONDS: u32 = 60 * 60;
 const ONE_DAY_IN_SECONDS: u64 = 60 * 60 * 24;
@@ -56,6 +65,7 @@ pub struct Config {
     port: u16 ,
     logfile: String ,
     cors_enabled: bool,
+    tower_web: bool,
 }
 
 impl Config {
@@ -72,6 +82,8 @@ impl Config {
         let logfile = env::var("PLAYGROUND_LOG_FILE").unwrap_or_else(|_| Self::DEFAULT_LOG_FILE.to_string());
         let cors_enabled = env::var_os("PLAYGROUND_CORS_ENABLED").is_some();
 
+        let tower_web = env::var_os("PLAYGROUND_TOWER_WEB").is_some();
+
         Self {
             root,
             gh_token,
@@ -79,6 +91,7 @@ impl Config {
             port,
             logfile,
             cors_enabled,
+            tower_web,
         }
     }
 }
@@ -90,7 +103,11 @@ fn main() {
     env_logger::init();
 
     let config = Config::from_env();
-    iron_web_server::run(config);
+    if config.tower_web {
+        tower_web_server::run(config);
+    } else {
+        iron_web_server::run(config);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -250,7 +267,7 @@ quick_error! {
 
 type Result<T> = ::std::result::Result<T, Error>;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Extract)]
 struct CompileRequest {
     target: String,
     #[serde(rename = "assemblyFlavor")]
@@ -271,7 +288,7 @@ struct CompileRequest {
     code: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Response)]
 struct CompileResponse {
     success: bool,
     code: String,
@@ -279,7 +296,7 @@ struct CompileResponse {
     stderr: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Extract)]
 struct ExecuteRequest {
     channel: String,
     mode: String,
@@ -293,19 +310,19 @@ struct ExecuteRequest {
     code: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Response)]
 struct ExecuteResponse {
     success: bool,
     stdout: String,
     stderr: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Extract)]
 struct FormatRequest {
     code: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Response)]
 struct FormatResponse {
     success: bool,
     code: String,
@@ -313,24 +330,24 @@ struct FormatResponse {
     stderr: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Extract)]
 struct ClippyRequest {
     code: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Response)]
 struct ClippyResponse {
     success: bool,
     stdout: String,
     stderr: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Extract)]
 struct MiriRequest {
     code: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Response)]
 struct MiriResponse {
     success: bool,
     stdout: String,
@@ -344,38 +361,38 @@ struct CrateInformation {
     id: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Response)]
 struct MetaCratesResponse {
     crates: Vec<CrateInformation>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Response)]
 struct MetaVersionResponse {
     version: String,
     hash: String,
     date: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Extract)]
 struct MetaGistCreateRequest {
     code: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Response)]
 struct MetaGistResponse {
     id: String,
     url: String,
     code: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Extract)]
 struct EvaluateRequest {
     version: String,
     optimize: String,
     code: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Response)]
 struct EvaluateResponse {
     result: String,
     error: Option<String>,

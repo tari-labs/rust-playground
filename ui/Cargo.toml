@@ -31,6 +31,11 @@ hyper-tls = "0.3"
 router = "0.6.0"
 openssl-probe = "0.1.2"
 dotenv = "0.13.0"
+#tower-web = { git ="https://github.com/carllerche/tower-web", branch = "master" }
+tower-web = { path = "../../../tower-web" }
+http = "0.1.8"
+futures = "0.1.23"
+mime_guess = "1.8.6"
 
 [dependencies.playground-middleware]
 git = "https://github.com/integer32llc/playground-middleware"
