@@ -163,6 +163,25 @@ cd compiler
 cd ..
 ```
 
+## Updating Rust playground
+
+If you've edited `top-crates/crate-modifications.yml`:
+
+```
+$ cd top-crates
+$ cargo run
+```
+
+Then
+
+```
+$ cd compiler
+$ PERFORM_PUSH=true ./build.sh
+```
+
+SSH into box and `./update.sh`
+
+
 ## License
 
 Licensed under either of
