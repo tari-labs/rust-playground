@@ -1,18 +1,11 @@
-FROM shepmaster/rust-nightly as sources
+FROM shepmaster/rust-nightly:sources
 
-RUN rustup component add rust-src
+RUN rustup component add rust-src miri
 
-FROM sources as build
+RUN cargo miri setup
+RUN cargo miri run
+RUN rm src/*.rs
 
-RUN cargo install xargo
-RUN git clone https://github.com/solson/miri ~/miri
-RUN rm -f ~/miri/rust-toolchain # make sure we use our toolchain
-RUN ~/miri/xargo/build.sh
-RUN cargo install --all-features --path ~/miri
-
-FROM sources
-
-COPY --from=build /root/.xargo /root/.xargo
-COPY --from=build /root/.cargo/bin/miri /root/.cargo/bin
-COPY --from=build /root/.cargo/bin/cargo-miri /root/.cargo/bin
 ADD cargo-miri-playground /root/.cargo/bin
+
+ENTRYPOINT ["/root/entrypoint.sh"]

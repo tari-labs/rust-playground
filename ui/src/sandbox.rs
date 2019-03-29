@@ -1,12 +1,16 @@
-use std::collections::BTreeMap;
-use std::ffi::OsStr;
-use std::fmt;
-use std::fs::{self, File};
-use std::io::prelude::*;
-use std::io::{self, BufReader, BufWriter, ErrorKind};
-use std::path::Path;
-use std::process::Command;
-use std::string;
+use serde_derive::Deserialize;
+use snafu::{ResultExt, Snafu};
+use std::{
+    collections::BTreeMap,
+    ffi::OsStr,
+    fmt,
+    fs::{self, File},
+    io::{self, prelude::*, BufReader, BufWriter, ErrorKind},
+    path::{Path, PathBuf},
+    process::Command,
+    string,
+};
+use tempdir::TempDir;
 
 #[derive(Debug, Deserialize)]
 struct CrateInformationInner {
@@ -36,95 +40,69 @@ pub struct Version {
     pub commit_date: String,
 }
 
-use mktemp::Temp;
-
-quick_error! {
-    #[derive(Debug)]
-    pub enum Error {
-        UnableToCreateTempDir(err: io::Error) {
-            description("unable to create temporary directory")
-            display("Unable to create temporary directory: {}", err)
-            cause(err)
-        }
-        UnableToCreateSourceFile(err: io::Error) {
-            description("unable to create source file")
-            display("Unable to create source file: {}", err)
-            cause(err)
-        }
-        UnableToExecuteCompiler(err: io::Error) {
-            description("unable to execute the compiler")
-            display("Unable to execute the compiler: {}", err)
-            cause(err)
-        }
-        UnableToReadOutput(err: io::Error) {
-            description("unable to read output file")
-            display("Unable to read output file: {}", err)
-            cause(err)
-        }
-        UnableToParseCrateInformation(err: ::serde_json::Error) {
-            from()
-            description("unable to read crate information")
-            display("Unable to read crate information: {}", err)
-            cause(err)
-        }
-        OutputNotUtf8(err: string::FromUtf8Error) {
-            description("output was not valid UTF-8")
-            display("Output was not valid UTF-8: {}", err)
-            cause(err)
-        }
-        OutputMissing {
-            description("output was missing")
-            display("Output was missing")
-        }
-        VersionReleaseMissing {
-            description("release was missing from the version output")
-            display("Release was missing from the version output")
-        }
-        VersionHashMissing {
-            description("commit hash was missing from the version output")
-            display("Commit hash was missing from the version output")
-        }
-        VersionDateMissing {
-            description("commit date was missing from the version output")
-            display("Commit date was missing from the version output")
-        }
-    }
+#[derive(Debug, Snafu)]
+pub enum Error {
+    #[snafu::display("Unable to create temporary directory: {}", source)]
+    UnableToCreateTempDir { source: io::Error },
+    #[snafu::display("Unable to create source file: {}", source)]
+    UnableToCreateSourceFile { source: io::Error },
+    #[snafu::display("Unable to execute the compiler: {}", source)]
+    UnableToExecuteCompiler { source: io::Error },
+    #[snafu::display("Unable to read output file: {}", source)]
+    UnableToReadOutput { source: io::Error },
+    #[snafu::display("Unable to read crate information: {}", source)]
+    UnableToParseCrateInformation { source: ::serde_json::Error },
+    #[snafu::display("Output was not valid UTF-8: {}", source)]
+    OutputNotUtf8 { source: string::FromUtf8Error },
+    #[snafu::display("Output was missing")]
+    OutputMissing,
+    #[snafu::display("Release was missing from the version output")]
+    VersionReleaseMissing,
+    #[snafu::display("Commit hash was missing from the version output")]
+    VersionHashMissing,
+    #[snafu::display("Commit date was missing from the version output")]
+    VersionDateMissing,
 }
 
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub type Result<T, E = Error> = ::std::result::Result<T, E>;
 
 pub struct Sandbox {
-    input_file: Temp,
-    output_dir: Temp,
+    #[allow(dead_code)]
+    scratch: TempDir,
+    input_file: PathBuf,
+    output_dir: PathBuf,
 }
 
 fn vec_to_str(v: Vec<u8>) -> Result<String> {
-    String::from_utf8(v).map_err(Error::OutputNotUtf8)
+    String::from_utf8(v).eager_context(OutputNotUtf8)
 }
 
 impl Sandbox {
     pub fn new() -> Result<Self> {
+        let scratch = TempDir::new("playground").context(UnableToCreateTempDir)?;
+        let input_file = scratch.path().join("input.rs");
+        let output_dir = scratch.path().join("output");
+
         Ok(Sandbox {
-            input_file: try!(Temp::new_file().map_err(Error::UnableToCreateTempDir)),
-            output_dir: try!(Temp::new_dir().map_err(Error::UnableToCreateTempDir)),
+            scratch,
+            input_file,
+            output_dir,
         })
     }
 
     pub fn compile(&self, req: &CompileRequest) -> Result<CompileResponse> {
-        try!(self.write_source_code(&req.code));
+        self.write_source_code(&req.code)?;
 
-        let mut command = self.compile_command(req.target, req.channel, req.mode, req.crate_type, req.tests, req.backtrace, req.edition);
+        let mut command = self.compile_command(req.target, req.channel, req.mode, req.tests, req);
 
-        let output = try!(command.output().map_err(Error::UnableToExecuteCompiler));
-
-        let result_path = self.output_dir.as_ref();
+        let output = command.output().context(UnableToExecuteCompiler)?;
 
         // The compiler writes the file to a name like
         // `compilation-3b75174cac3d47fb.ll`, so we just find the
         // first with the right extension.
         let file =
-            fs::read_dir(&result_path)
-            .map_err(Error::UnableToReadOutput)?
+            fs::read_dir(&self.output_dir)
+            .context(UnableToReadOutput)?
             .flat_map(|entry| entry)
             .map(|entry| entry.path())
             .find(|path| path.extension() == Some(req.target.extension()));
@@ -166,50 +144,50 @@ impl Sandbox {
     }
 
     pub fn execute(&self, req: &ExecuteRequest) -> Result<ExecuteResponse> {
-        try!(self.write_source_code(&req.code));
-        let mut command = self.execute_command(req.channel, req.mode, req.crate_type, req.tests, req.backtrace, req.edition);
+        self.write_source_code(&req.code)?;
+        let mut command = self.execute_command(req.channel, req.mode, req.tests, req);
 
-        let output = try!(command.output().map_err(Error::UnableToExecuteCompiler));
+        let output = command.output().context(UnableToExecuteCompiler)?;
 
         Ok(ExecuteResponse {
             success: output.status.success(),
-            stdout: try!(vec_to_str(output.stdout)),
-            stderr: try!(vec_to_str(output.stderr)),
+            stdout: vec_to_str(output.stdout)?,
+            stderr: vec_to_str(output.stderr)?,
         })
     }
 
     pub fn format(&self, req: &FormatRequest) -> Result<FormatResponse> {
-        try!(self.write_source_code(&req.code));
+        self.write_source_code(&req.code)?;
         let mut command = self.format_command();
 
-        let output = try!(command.output().map_err(Error::UnableToExecuteCompiler));
+        let output = command.output().context(UnableToExecuteCompiler)?;
 
         Ok(FormatResponse {
             success: output.status.success(),
-            code: try!(try!(read(self.input_file.as_ref())).ok_or(Error::OutputMissing)),
-            stdout: try!(vec_to_str(output.stdout)),
-            stderr: try!(vec_to_str(output.stderr)),
+            code: read(self.input_file.as_ref())?.ok_or(Error::OutputMissing)?,
+            stdout: vec_to_str(output.stdout)?,
+            stderr: vec_to_str(output.stderr)?,
         })
     }
 
     pub fn clippy(&self, req: &ClippyRequest) -> Result<ClippyResponse> {
-        try!(self.write_source_code(&req.code));
-        let mut command = self.clippy_command();
+        self.write_source_code(&req.code)?;
+        let mut command = self.clippy_command(req);
 
-        let output = try!(command.output().map_err(Error::UnableToExecuteCompiler));
+        let output = command.output().context(UnableToExecuteCompiler)?;
 
         Ok(ClippyResponse {
             success: output.status.success(),
-            stdout: try!(vec_to_str(output.stdout)),
-            stderr: try!(vec_to_str(output.stderr)),
+            stdout: vec_to_str(output.stdout)?,
+            stderr: vec_to_str(output.stderr)?,
         })
     }
 
     pub fn miri(&self, req: &MiriRequest) -> Result<MiriResponse> {
         self.write_source_code(&req.code)?;
-        let mut command = self.miri_command();
+        let mut command = self.miri_command(req);
 
-        let output = command.output().map_err(Error::UnableToExecuteCompiler)?;
+        let output = command.output().context(UnableToExecuteCompiler)?;
 
         Ok(MiriResponse {
             success: output.status.success(),
@@ -223,9 +201,9 @@ impl Sandbox {
         command.args(&[Channel::Stable.container_name()]);
         command.args(&["cat", "crate-information.json"]);
 
-        let output = command.output().map_err(Error::UnableToExecuteCompiler)?;
+        let output = command.output().context(UnableToExecuteCompiler)?;
 
-        let crate_info: Vec<CrateInformationInner> = ::serde_json::from_slice(&output.stdout)?;
+        let crate_info: Vec<CrateInformationInner> = ::serde_json::from_slice(&output.stdout).context(UnableToParseCrateInformation)?;
 
         let crates = crate_info.into_iter()
             .map(Into::into)
@@ -239,7 +217,7 @@ impl Sandbox {
         command.args(&[channel.container_name()]);
         command.args(&["rustc", "--version", "--verbose"]);
 
-        let output = command.output().map_err(Error::UnableToExecuteCompiler)?;
+        let output = command.output().context(UnableToExecuteCompiler)?;
         let version_output = vec_to_str(output.stdout)?;
 
         let mut info: BTreeMap<String, String> = version_output.lines().skip(1).filter_map(|line| {
@@ -273,26 +251,18 @@ impl Sandbox {
     pub fn version_miri(&self) -> Result<Version> {
         let mut command = basic_secure_docker_command();
         command.args(&["miri", "cargo", "miri", "--version"]);
-
-        let output = command.output().map_err(Error::UnableToExecuteCompiler)?;
-        let version_output = vec_to_str(output.stdout)?;
-
-        let release = version_output.trim().into();
-        let commit_hash = String::new();
-        let commit_date = String::new();
-
-        Ok(Version { release, commit_hash, commit_date })
+        self.cargo_tool_version(command)
     }
 
     // Parses versions of the shape `toolname 0.0.0 (0000000 0000-00-00)`
     fn cargo_tool_version(&self, mut command: Command) -> Result<Version> {
-        let output = command.output().map_err(Error::UnableToExecuteCompiler)?;
+        let output = command.output().context(UnableToExecuteCompiler)?;
         let version_output = vec_to_str(output.stdout)?;
         let mut parts = version_output.split_whitespace().fuse().skip(1);
 
         let release = parts.next().unwrap_or("").into();
-        let commit_hash = parts.next().unwrap_or("").trim_left_matches('(').into();
-        let commit_date = parts.next().unwrap_or("").trim_right_matches(')').into();
+        let commit_hash = parts.next().unwrap_or("").trim_start_matches('(').into();
+        let commit_date = parts.next().unwrap_or("").trim_end_matches(')').into();
 
         Ok(Version { release, commit_hash, commit_date })
     }
@@ -300,38 +270,37 @@ impl Sandbox {
     fn write_source_code(&self, code: &str) -> Result<()> {
         let data = code.as_bytes();
 
-        let path = self.input_file.as_ref();
-        let file = try!(File::create(path).map_err(Error::UnableToCreateSourceFile));
+        let file = File::create(&self.input_file).context(UnableToCreateSourceFile)?;
         let mut file = BufWriter::new(file);
 
-        try!(file.write_all(data).map_err(Error::UnableToCreateSourceFile));
+        file.write_all(data).context(UnableToCreateSourceFile)?;
 
-        debug!("Wrote {} bytes of source to {}", data.len(), path.display());
+        log::debug!("Wrote {} bytes of source to {}", data.len(), self.input_file.display());
         Ok(())
     }
 
-    fn compile_command(&self, target: CompileTarget, channel: Channel, mode: Mode, crate_type: CrateType, tests: bool, backtrace: bool, edition: Option<Edition>) -> Command {
-        let mut cmd = self.docker_command(Some(crate_type));
-        set_execution_environment(&mut cmd, Some(target), crate_type, edition, backtrace);
+    fn compile_command(&self, target: CompileTarget, channel: Channel, mode: Mode, tests: bool, req: impl CrateTypeRequest + EditionRequest + BacktraceRequest) -> Command {
+        let mut cmd = self.docker_command(Some(req.crate_type()));
+        set_execution_environment(&mut cmd, Some(target), &req);
 
-        let execution_cmd = build_execution_command(Some(target), channel, mode, crate_type, tests);
+        let execution_cmd = build_execution_command(Some(target), channel, mode, &req, tests);
 
         cmd.arg(&channel.container_name()).args(&execution_cmd);
 
-        debug!("Compilation command is {:?}", cmd);
+        log::debug!("Compilation command is {:?}", cmd);
 
         cmd
     }
 
-    fn execute_command(&self, channel: Channel, mode: Mode, crate_type: CrateType, tests: bool, backtrace: bool, edition: Option<Edition>) -> Command {
-        let mut cmd = self.docker_command(Some(crate_type));
-        set_execution_environment(&mut cmd, None, crate_type, edition, backtrace);
+    fn execute_command(&self, channel: Channel, mode: Mode, tests: bool, req: impl CrateTypeRequest + EditionRequest + BacktraceRequest) -> Command {
+        let mut cmd = self.docker_command(Some(req.crate_type()));
+        set_execution_environment(&mut cmd, None, &req);
 
-        let execution_cmd = build_execution_command(None, channel, mode, crate_type, tests);
+        let execution_cmd = build_execution_command(None, channel, mode, &req, tests);
 
         cmd.arg(&channel.container_name()).args(&execution_cmd);
 
-        debug!("Execution command is {:?}", cmd);
+        log::debug!("Execution command is {:?}", cmd);
 
         cmd
     }
@@ -343,27 +312,31 @@ impl Sandbox {
 
         cmd.arg("rustfmt").args(&["cargo", "fmt"]);
 
-        debug!("Formatting command is {:?}", cmd);
+        log::debug!("Formatting command is {:?}", cmd);
 
         cmd
     }
 
-    fn clippy_command(&self) -> Command {
-        let mut cmd = self.docker_command(None);
+    fn clippy_command(&self, req: impl CrateTypeRequest + EditionRequest) -> Command {
+        let mut cmd = self.docker_command(Some(req.crate_type()));
+
+        cmd.apply_crate_type(&req);
+        cmd.apply_edition(&req);
 
         cmd.arg("clippy").args(&["cargo", "clippy"]);
 
-        debug!("Clippy command is {:?}", cmd);
+        log::debug!("Clippy command is {:?}", cmd);
 
         cmd
     }
 
-    fn miri_command(&self) -> Command {
+    fn miri_command(&self, req: impl EditionRequest) -> Command {
         let mut cmd = self.docker_command(None);
+        cmd.apply_edition(req);
 
         cmd.arg("miri").args(&["cargo", "miri-playground"]);
 
-        debug!("Miri command is {:?}", cmd);
+        log::debug!("Miri command is {:?}", cmd);
 
         cmd
     }
@@ -371,12 +344,12 @@ impl Sandbox {
     fn docker_command(&self, crate_type: Option<CrateType>) -> Command {
         let crate_type = crate_type.unwrap_or(CrateType::Binary);
 
-        let mut mount_input_file = self.input_file.as_ref().as_os_str().to_os_string();
+        let mut mount_input_file = self.input_file.as_os_str().to_os_string();
         mount_input_file.push(":");
         mount_input_file.push("/playground/");
         mount_input_file.push(crate_type.file_name());
 
-        let mut mount_output_dir = self.output_dir.as_ref().as_os_str().to_os_string();
+        let mut mount_output_dir = self.output_dir.as_os_str().to_os_string();
         mount_output_dir.push(":");
         mount_output_dir.push("/playground-result");
 
@@ -412,14 +385,14 @@ fn basic_secure_docker_command() -> Command {
     cmd
 }
 
-fn build_execution_command(target: Option<CompileTarget>, channel: Channel, mode: Mode, crate_type: CrateType, tests: bool) -> Vec<&'static str> {
+fn build_execution_command(target: Option<CompileTarget>, channel: Channel, mode: Mode, req: impl CrateTypeRequest, tests: bool) -> Vec<&'static str> {
     use self::CompileTarget::*;
     use self::CrateType::*;
     use self::Mode::*;
 
     let mut cmd = vec!["cargo"];
 
-    match (target, crate_type, tests) {
+    match (target, req.crate_type(), tests) {
         (Some(Wasm), _, _) => cmd.push("wasm"),
         (Some(_), _, _)    => cmd.push("rustc"),
         (_, _, true)       => cmd.push("test"),
@@ -461,38 +434,29 @@ fn build_execution_command(target: Option<CompileTarget>, channel: Channel, mode
     cmd
 }
 
-fn set_execution_environment(cmd: &mut Command, target: Option<CompileTarget>, crate_type: CrateType, edition: Option<Edition>, backtrace: bool) {
+fn set_execution_environment(cmd: &mut Command, target: Option<CompileTarget>, req: impl CrateTypeRequest + EditionRequest + BacktraceRequest) {
     use self::CompileTarget::*;
-    use self::CrateType::*;
 
     if let Some(Wasm) = target {
         cmd.args(&["--env", "PLAYGROUND_NO_DEPENDENCIES=true"]);
         cmd.args(&["--env", "PLAYGROUND_RELEASE_LTO=true"]);
     }
 
-    if let Library(lib) = crate_type {
-        cmd.args(&["--env", &format!("PLAYGROUND_CRATE_TYPE={}", lib.cargo_ident())]);
-    }
-
-    if let Some(edition) = edition {
-        cmd.args(&["--env", &format!("PLAYGROUND_EDITION={}", edition.cargo_ident())]);
-    }
-
-    if backtrace {
-        cmd.args(&["--env", "RUST_BACKTRACE=1"]);
-    }
+    cmd.apply_crate_type(&req);
+    cmd.apply_edition(&req);
+    cmd.apply_backtrace(&req);
 }
 
 fn read(path: &Path) -> Result<Option<String>> {
     let f = match File::open(path) {
         Ok(f) => f,
         Err(ref e) if e.kind() == ErrorKind::NotFound => return Ok(None),
-        Err(e) => return Err(Error::UnableToReadOutput(e)),
+        e => e.context(UnableToReadOutput)?,
     };
     let mut f = BufReader::new(f);
 
     let mut s = String::new();
-    try!(f.read_to_string(&mut s).map_err(Error::UnableToReadOutput));
+    f.read_to_string(&mut s).context(UnableToReadOutput)?;
     Ok(Some(s))
 }
 
@@ -534,7 +498,7 @@ impl CompileTarget {
 }
 
 impl fmt::Display for CompileTarget {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::CompileTarget::*;
 
         match *self {
@@ -630,6 +594,56 @@ impl LibraryType {
     }
 }
 
+trait DockerCommandExt {
+    fn apply_crate_type(&mut self, req: impl CrateTypeRequest);
+    fn apply_edition(&mut self, req: impl EditionRequest);
+    fn apply_backtrace(&mut self, req: impl BacktraceRequest);
+}
+
+impl DockerCommandExt for Command {
+    fn apply_crate_type(&mut self, req: impl CrateTypeRequest) {
+        if let CrateType::Library(lib) = req.crate_type() {
+            self.args(&["--env", &format!("PLAYGROUND_CRATE_TYPE={}", lib.cargo_ident())]);
+        }
+    }
+
+    fn apply_edition(&mut self, req: impl EditionRequest) {
+        if let Some(edition) = req.edition() {
+            self.args(&["--env", &format!("PLAYGROUND_EDITION={}", edition.cargo_ident())]);
+        }
+    }
+
+    fn apply_backtrace(&mut self, req: impl BacktraceRequest) {
+        if req.backtrace() {
+            self.args(&["--env", "RUST_BACKTRACE=1"]);
+        }
+    }
+}
+
+trait CrateTypeRequest {
+    fn crate_type(&self) -> CrateType;
+}
+
+impl<R: CrateTypeRequest> CrateTypeRequest for &'_ R {
+    fn crate_type(&self) -> CrateType { (*self).crate_type() }
+}
+
+trait EditionRequest {
+    fn edition(&self) -> Option<Edition>;
+}
+
+impl<R: EditionRequest> EditionRequest for &'_ R {
+    fn edition(&self) -> Option<Edition> { (*self).edition() }
+}
+
+trait BacktraceRequest {
+    fn backtrace(&self) -> bool;
+}
+
+impl<R: BacktraceRequest> BacktraceRequest for &'_ R {
+    fn backtrace(&self) -> bool { (*self).backtrace() }
+}
+
 #[derive(Debug, Clone)]
 pub struct CompileRequest {
     pub target: CompileTarget,
@@ -640,6 +654,18 @@ pub struct CompileRequest {
     pub tests: bool,
     pub backtrace: bool,
     pub code: String,
+}
+
+impl CrateTypeRequest for CompileRequest {
+    fn crate_type(&self) -> CrateType { self.crate_type }
+}
+
+impl EditionRequest for CompileRequest {
+    fn edition(&self) -> Option<Edition> { self.edition }
+}
+
+impl BacktraceRequest for CompileRequest {
+    fn backtrace(&self) -> bool { self.backtrace }
 }
 
 #[derive(Debug, Clone)]
@@ -659,6 +685,18 @@ pub struct ExecuteRequest {
     pub tests: bool,
     pub backtrace: bool,
     pub code: String,
+}
+
+impl CrateTypeRequest for ExecuteRequest {
+    fn crate_type(&self) -> CrateType { self.crate_type }
+}
+
+impl EditionRequest for ExecuteRequest {
+    fn edition(&self) -> Option<Edition> { self.edition }
+}
+
+impl BacktraceRequest for ExecuteRequest {
+    fn backtrace(&self) -> bool { self.backtrace }
 }
 
 #[derive(Debug, Clone)]
@@ -684,6 +722,16 @@ pub struct FormatResponse {
 #[derive(Debug, Clone)]
 pub struct ClippyRequest {
     pub code: String,
+    pub edition: Option<Edition>,
+    pub crate_type: CrateType,
+}
+
+impl CrateTypeRequest for ClippyRequest {
+    fn crate_type(&self) -> CrateType { self.crate_type }
+}
+
+impl EditionRequest for ClippyRequest {
+    fn edition(&self) -> Option<Edition> { self.edition }
 }
 
 #[derive(Debug, Clone)]
@@ -696,6 +744,11 @@ pub struct ClippyResponse {
 #[derive(Debug, Clone)]
 pub struct MiriRequest {
     pub code: String,
+    pub edition: Option<Edition>,
+}
+
+impl EditionRequest for MiriRequest {
+    fn edition(&self) -> Option<Edition> { self.edition }
 }
 
 #[derive(Debug, Clone)]
@@ -740,6 +793,16 @@ mod test {
                 code: HELLO_WORLD_CODE.to_string(),
                 edition: None,
                 backtrace: false,
+            }
+        }
+    }
+
+    impl Default for ClippyRequest {
+        fn default() -> Self {
+            ClippyRequest {
+                code: HELLO_WORLD_CODE.to_string(),
+                crate_type: CrateType::Binary,
+                edition: None,
             }
         }
     }
@@ -851,14 +914,13 @@ mod test {
         assert!(resp.stdout.contains("nightly"));
     }
 
+    // Code that will only work in Rust 2018
     const EDITION_CODE: &str = r#"
-    mod foo {
-        pub fn bar() {}
+    macro_rules! foo {
+        ($($a:ident)?) => {}
     }
 
-    fn main() {
-        crate::foo::bar();
-    }
+    fn main() {}
     "#;
 
     #[test]
@@ -872,7 +934,7 @@ mod test {
         let sb = Sandbox::new()?;
         let resp = sb.execute(&req)?;
 
-        assert!(resp.stderr.contains("`crate` in paths is experimental"));
+        assert!(resp.stderr.contains("`?` is not a macro repetition operator"));
         Ok(())
     }
 
@@ -888,7 +950,7 @@ mod test {
         let sb = Sandbox::new()?;
         let resp = sb.execute(&req)?;
 
-        assert!(resp.stderr.contains("`crate` in paths is experimental"));
+        assert!(resp.stderr.contains("`?` is not a macro repetition operator"));
         Ok(())
     }
 
@@ -994,7 +1056,7 @@ mod test {
         let resp = sb.compile(&req).expect("Unable to compile code");
 
         assert!(resp.code.contains("core::fmt::Arguments::new_v1"));
-        assert!(resp.code.contains("std::io::stdio::_print@PLT"));
+        assert!(resp.code.contains("std::io::stdio::_print@GOTPCREL"));
     }
 
     #[test]
@@ -1039,13 +1101,38 @@ mod test {
 
         let req = ClippyRequest {
             code: code.to_string(),
+            ..ClippyRequest::default()
         };
 
         let sb = Sandbox::new().expect("Unable to create sandbox");
         let resp = sb.clippy(&req).expect("Unable to lint code");
 
-        assert!(resp.stderr.contains("deny(eq_op)"));
-        assert!(resp.stderr.contains("warn(zero_divided_by_zero)"));
+        assert!(resp.stderr.contains("deny(clippy::eq_op)"));
+        assert!(resp.stderr.contains("warn(clippy::zero_divided_by_zero)"));
+    }
+
+    #[test]
+    fn linting_code_options() {
+        let code = r#"
+        use itertools::Itertools; // Edition 2018 feature
+
+        fn example() {
+            let a = 0.0 / 0.0;
+            println!("NaN is {}", a);
+        }
+        "#;
+
+        let req = ClippyRequest {
+            code: code.to_string(),
+            crate_type: CrateType::Library(LibraryType::Rlib),
+            edition: Some(Edition::Rust2018),
+        };
+
+        let sb = Sandbox::new().expect("Unable to create sandbox");
+        let resp = sb.clippy(&req).expect("Unable to lint code");
+
+        assert!(resp.stderr.contains("deny(clippy::eq_op)"));
+        assert!(resp.stderr.contains("warn(clippy::zero_divided_by_zero)"));
     }
 
     #[test]
@@ -1059,12 +1146,13 @@ mod test {
 
         let req = MiriRequest {
             code: code.to_string(),
+            edition: None,
         };
 
         let sb = Sandbox::new()?;
         let resp = sb.miri(&req)?;
 
-        assert!(resp.stderr.contains("pointer computed at offset 1"));
+        assert!(resp.stderr.contains("Pointer must be in-bounds and live at offset 1"));
         assert!(resp.stderr.contains("outside bounds of allocation"));
         assert!(resp.stderr.contains("which has size 0"));
         Ok(())

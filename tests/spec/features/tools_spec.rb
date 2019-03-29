@@ -23,14 +23,16 @@ RSpec.feature "Using third-party Rust tools", type: :feature, js: true do
     in_tools_menu { click_on("Clippy") }
 
     within(".output-stderr") do
-      expect(page).to have_content 'deny(eq_op)'
-      expect(page).to have_content 'warn(zero_divided_by_zero)'
+      expect(page).to have_content 'deny(clippy::eq_op)'
+      expect(page).to have_content 'warn(clippy::zero_divided_by_zero)'
     end
   end
 
   def code_with_lint_warnings
     <<~EOF
-    fn main() {
+    use itertools::Itertools;
+
+    fn example() {
         let a = 0.0 / 0.0;
         println!("NaN is {}", a);
     }
@@ -42,7 +44,7 @@ RSpec.feature "Using third-party Rust tools", type: :feature, js: true do
     in_tools_menu { click_on("Miri") }
 
     within(".output-stderr") do
-      expect(page).to have_content /pointer computed at offset 1, outside bounds of allocation \d+ which has size 0/
+      expect(page).to have_content %r{Pointer must be in-bounds and live at offset 1, but is outside bounds of allocation \d+ which has size 0}
     end
   end
 

@@ -2,7 +2,7 @@
 
 set -euv -o pipefail
 
-channels_to_build="${CHANNELS_TO_BUILD-beta nightly}"
+channels_to_build="${CHANNELS_TO_BUILD-stable nightly}"
 tools_to_build="${TOOLS_TO_BUILD-rustfmt clippy}"
 perform_push="${PERFORM_PUSH-false}"
 
@@ -48,5 +48,3 @@ for tool in $tools_to_build; do
 
     cd ..
 done
-
-

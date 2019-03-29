@@ -1,9 +1,12 @@
-use hubcaps::gists::{self, Content, GistOptions};
-use hubcaps::{Credentials, Github};
-use std::collections::HashMap;
-use tokio_core::reactor::{Core, Handle};
+use hubcaps::{
+    self,
+    gists::{self, Content, GistOptions},
+    Credentials, Github,
+};
 use hyper;
 use hyper_tls;
+use std::collections::HashMap;
+use tokio::{prelude::Future, runtime::current_thread::Runtime};
 
 const FILENAME: &str = "playground.rs";
 const DESCRIPTION: &str = "Code shared from the Rust Playground";
@@ -21,7 +24,7 @@ impl From<gists::Gist> for Gist {
             .map(|(name, file)| (name, file.content.unwrap_or_default()))
             .collect();
 
-        files.sort_by(|&(ref name1, _), &(ref name2, _)| name1.cmp(name2));
+        files.sort_by(|(name1, _), (name2, _)| name1.cmp(name2));
 
         let code = match files.len() {
             0 | 1 => files.into_iter().map(|(_, content)| content).collect(),
@@ -42,8 +45,15 @@ impl From<gists::Gist> for Gist {
 }
 
 pub fn create(token: String, code: String) -> Gist {
-    let mut core = core();
-    let github = github(token, &core.handle());
+    Runtime::new()
+        .expect("unable to create runtime")
+        .block_on(create_future(token, code))
+        .expect("Unable to create gist")
+    // TODO: Better reporting of failures
+}
+
+pub fn create_future(token: String, code: String) -> impl Future<Item = Gist, Error = hubcaps::Error> {
+    let github = github(token);
 
     let file = Content {
         filename: None,
@@ -59,36 +69,34 @@ pub fn create(token: String, code: String) -> Gist {
         files,
     };
 
-    let creation = github.gists().create(&options);
-
-    // TODO: Better reporting of failures
-    let gist = core.run(creation).expect("Unable to create gist");
-
-    gist.into()
+    github
+        .gists()
+        .create(&options)
+        .map(Into::into)
 }
 
 pub fn load(token: String, id: &str) -> Gist {
-    let mut core = core();
-    let github = github(token, &core.handle());
-
-    let loading = github.gists().get(id);
-
+    Runtime::new()
+        .expect("unable to create runtime")
+        .block_on(load_future(token, id))
+        .expect("Unable to load gist")
     // TODO: Better reporting of a 404
-    let gist = core.run(loading).expect("Unable to load gist");
-
-    gist.into()
 }
 
-fn core() -> Core {
-    Core::new().expect("Unable to create the reactor")
+pub fn load_future(token: String, id: &str) -> impl Future<Item = Gist, Error = ::hubcaps::Error> {
+    let github = github(token);
+
+    github
+        .gists()
+        .get(id)
+        .map(Into::into)
 }
 
 type HubcapConnector = hyper_tls::HttpsConnector<hyper::client::HttpConnector>;
 
-fn github(token: String, handle: &Handle) -> Github<HubcapConnector> {
+fn github(token: String) -> Github<HubcapConnector> {
     Github::new(
         String::from("The Rust Playground"),
         Some(Credentials::Token(token)),
-        handle,
     )
 }

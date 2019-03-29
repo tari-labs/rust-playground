@@ -2,7 +2,7 @@ import fetch from 'isomorphic-fetch';
 import { ThunkAction as ReduxThunkAction } from 'redux-thunk';
 import url from 'url';
 
-import { getCrateType, isAutoBuildSelector, isEditionAvailable, runAsTest } from './selectors';
+import { clippyRequestSelector, getCrateType, isAutoBuildSelector, runAsTest } from './selectors';
 import State from './state';
 import {
   AssemblyFlavor,
@@ -81,6 +81,7 @@ export enum ActionType {
   CompileWasmFailed = 'COMPILE_WASM_FAILED',
   EditCode = 'EDIT_CODE',
   AddMainFunction = 'ADD_MAIN_FUNCTION',
+  EnableFeatureGate = 'ENABLE_FEATURE_GATE',
   GotoPosition = 'GOTO_POSITION',
   RequestFormat = 'REQUEST_FORMAT',
   FormatSucceeded = 'FORMAT_SUCCEEDED',
@@ -145,11 +146,6 @@ export const changeMode = (mode: Mode) =>
 
 export const changeEdition = (edition: Edition) =>
   createAction(ActionType.ChangeEdition, { edition });
-
-export const changeNightlyEdition = (edition: Edition): ThunkAction => dispatch => {
-  dispatch(changeChannel(Channel.Nightly));
-  dispatch(changeEdition(edition));
-};
 
 export const changeBacktrace = (backtrace: Backtrace) =>
   createAction(ActionType.ChangeBacktrace, { backtrace });
@@ -226,7 +222,7 @@ interface ExecuteRequestBody {
   crateType: string;
   tests: boolean;
   code: string;
-  edition?: string;
+  edition: string;
   backtrace: boolean;
 }
 
@@ -238,10 +234,7 @@ const performCommonExecute = (crateType, tests): ThunkAction => (dispatch, getSt
   const backtrace = state.configuration.backtrace === Backtrace.Enabled;
   const isAutoBuild = isAutoBuildSelector(state);
 
-  const body: ExecuteRequestBody = { channel, mode, crateType, tests, code, backtrace };
-  if (isEditionAvailable(state)) {
-    body.edition = edition;
-  }
+  const body: ExecuteRequestBody = { channel, mode, edition, crateType, tests, code, backtrace };
 
   return jsonPost(routes.execute, body)
     .then(json => dispatch(receiveExecuteSuccess({ ...json, isAutoBuild })))
@@ -289,6 +282,7 @@ function performCompileShow(target, { request, success, failure }): ThunkAction 
     const body: CompileRequestBody = {
       channel,
       mode,
+      edition,
       crateType,
       tests,
       code,
@@ -298,9 +292,6 @@ function performCompileShow(target, { request, success, failure }): ThunkAction 
       processAssembly,
       backtrace,
     };
-    if (isEditionAvailable(state)) {
-      body.edition = edition;
-    }
 
     return jsonPost(routes.compile, body)
       .then(json => dispatch(success(json)))
@@ -420,6 +411,9 @@ export const editCode = (code: string) =>
 export const addMainFunction = () =>
   createAction(ActionType.AddMainFunction);
 
+export const enableFeatureGate = (featureGate: string) =>
+  createAction(ActionType.EnableFeatureGate, { featureGate });
+
 export const gotoPosition = (line, column) =>
   createAction(ActionType.GotoPosition, { line: +line, column: +column });
 
@@ -462,6 +456,12 @@ export function performFormat(): ThunkAction {
 const requestClippy = () =>
   createAction(ActionType.RequestClippy);
 
+interface ClippyRequestBody {
+  code: string;
+  edition: string;
+  crateType: string;
+}
+
 const receiveClippySuccess = ({ stdout, stderr }) =>
   createAction(ActionType.ClippySucceeded, { stdout, stderr });
 
@@ -473,8 +473,7 @@ export function performClippy(): ThunkAction {
   return function(dispatch, getState) {
     dispatch(requestClippy());
 
-    const { code } = getState();
-    const body = { code };
+    const body: ClippyRequestBody = clippyRequestSelector(getState());
 
     return jsonPost(routes.clippy, body)
       .then(json => dispatch(receiveClippySuccess(json)))
@@ -484,6 +483,11 @@ export function performClippy(): ThunkAction {
 
 const requestMiri = () =>
   createAction(ActionType.RequestMiri);
+
+interface MiriRequestBody {
+  code: string;
+  edition: string;
+}
 
 const receiveMiriSuccess = ({ stdout, stderr }) =>
   createAction(ActionType.MiriSucceeded, { stdout, stderr });
@@ -496,8 +500,10 @@ export function performMiri(): ThunkAction {
   return function(dispatch, getState) {
     dispatch(requestMiri());
 
-    const { code } = getState();
-    const body = { code };
+    const { code, configuration: {
+      edition,
+    } } = getState();
+    const body: MiriRequestBody = { code, edition };
 
     return jsonPost(routes.miri, body)
       .then(json => dispatch(receiveMiriSuccess(json)))
@@ -610,7 +616,7 @@ export function performVersionsLoad(): ThunkAction {
 const notificationSeen = (notification: Notification) =>
   createAction(ActionType.NotificationSeen, { notification });
 
-export const seenRustSurvey2018 = () => notificationSeen(Notification.RustSurvey2018);
+export const seenRust2018IsDefault = () => notificationSeen(Notification.Rust2018IsDefault);
 
 function parseChannel(s: string): Channel | null {
   switch (s) {
@@ -734,6 +740,7 @@ export type Action =
   | ReturnType<typeof receiveCompileWasmFailure>
   | ReturnType<typeof editCode>
   | ReturnType<typeof addMainFunction>
+  | ReturnType<typeof enableFeatureGate>
   | ReturnType<typeof gotoPosition>
   | ReturnType<typeof requestFormat>
   | ReturnType<typeof receiveFormatSuccess>
