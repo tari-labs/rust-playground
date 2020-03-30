@@ -5,12 +5,17 @@ use std::{
     ffi::OsStr,
     fmt,
     fs::{self, File},
-    io::{self, prelude::*, BufReader, BufWriter, ErrorKind},
+    io::{self, prelude::*, BufReader, ErrorKind},
+    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
-    process::Command,
     string,
+    time::Duration,
 };
 use tempdir::TempDir;
+use tokio::process::Command;
+
+const DOCKER_PROCESS_TIMEOUT_SOFT: Duration = Duration::from_secs(10);
+const DOCKER_PROCESS_TIMEOUT_HARD: Duration = Duration::from_secs(12);
 
 #[derive(Debug, Deserialize)]
 struct CrateInformationInner {
@@ -42,25 +47,33 @@ pub struct Version {
 
 #[derive(Debug, Snafu)]
 pub enum Error {
-    #[snafu::display("Unable to create temporary directory: {}", source)]
+    #[snafu(display("Unable to create temporary directory: {}", source))]
     UnableToCreateTempDir { source: io::Error },
-    #[snafu::display("Unable to create source file: {}", source)]
+    #[snafu(display("Unable to create output directory: {}", source))]
+    UnableToCreateOutputDir { source: io::Error },
+    #[snafu(display("Unable to set permissions for output directory: {}", source))]
+    UnableToSetOutputPermissions { source: io::Error },
+    #[snafu(display("Unable to create source file: {}", source))]
     UnableToCreateSourceFile { source: io::Error },
-    #[snafu::display("Unable to execute the compiler: {}", source)]
+    #[snafu(display("Unable to set permissions for source file: {}", source))]
+    UnableToSetSourcePermissions { source: io::Error },
+    #[snafu(display("Unable to execute the compiler: {}", source))]
     UnableToExecuteCompiler { source: io::Error },
-    #[snafu::display("Unable to read output file: {}", source)]
+    #[snafu(display("Compiler execution took longer than {} ms", timeout.as_millis()))]
+    CompilerExecutionTimedOut { source: tokio::time::Elapsed, timeout: Duration },
+    #[snafu(display("Unable to read output file: {}", source))]
     UnableToReadOutput { source: io::Error },
-    #[snafu::display("Unable to read crate information: {}", source)]
+    #[snafu(display("Unable to read crate information: {}", source))]
     UnableToParseCrateInformation { source: ::serde_json::Error },
-    #[snafu::display("Output was not valid UTF-8: {}", source)]
+    #[snafu(display("Output was not valid UTF-8: {}", source))]
     OutputNotUtf8 { source: string::FromUtf8Error },
-    #[snafu::display("Output was missing")]
+    #[snafu(display("Output was missing"))]
     OutputMissing,
-    #[snafu::display("Release was missing from the version output")]
+    #[snafu(display("Release was missing from the version output"))]
     VersionReleaseMissing,
-    #[snafu::display("Commit hash was missing from the version output")]
+    #[snafu(display("Commit hash was missing from the version output"))]
     VersionHashMissing,
-    #[snafu::display("Commit date was missing from the version output")]
+    #[snafu(display("Commit date was missing from the version output"))]
     VersionDateMissing,
 }
 
@@ -74,7 +87,17 @@ pub struct Sandbox {
 }
 
 fn vec_to_str(v: Vec<u8>) -> Result<String> {
-    String::from_utf8(v).eager_context(OutputNotUtf8)
+    String::from_utf8(v).context(OutputNotUtf8)
+}
+
+// We must create a world-writable files (rustfmt) and directories
+// (LLVM IR) so that the process inside the Docker container can write
+// into it.
+//
+// This problem does *not* occur when using the indirection of
+// docker-machine.
+fn wide_open_permissions() -> std::fs::Permissions {
+    PermissionsExt::from_mode(0o777)
 }
 
 impl Sandbox {
@@ -82,6 +105,9 @@ impl Sandbox {
         let scratch = TempDir::new("playground").context(UnableToCreateTempDir)?;
         let input_file = scratch.path().join("input.rs");
         let output_dir = scratch.path().join("output");
+
+        fs::create_dir(&output_dir).context(UnableToCreateOutputDir)?;
+        fs::set_permissions(&output_dir, wide_open_permissions()).context(UnableToSetOutputPermissions)?;
 
         Ok(Sandbox {
             scratch,
@@ -93,9 +119,9 @@ impl Sandbox {
     pub fn compile(&self, req: &CompileRequest) -> Result<CompileResponse> {
         self.write_source_code(&req.code)?;
 
-        let mut command = self.compile_command(req.target, req.channel, req.mode, req.tests, req);
+        let command = self.compile_command(req.target, req.channel, req.mode, req.tests, req);
 
-        let output = command.output().context(UnableToExecuteCompiler)?;
+        let output = run_command_with_timeout(command)?;
 
         // The compiler writes the file to a name like
         // `compilation-3b75174cac3d47fb.ll`, so we just find the
@@ -145,9 +171,9 @@ impl Sandbox {
 
     pub fn execute(&self, req: &ExecuteRequest) -> Result<ExecuteResponse> {
         self.write_source_code(&req.code)?;
-        let mut command = self.execute_command(req.channel, req.mode, req.tests, req);
+        let command = self.execute_command(req.channel, req.mode, req.tests, req);
 
-        let output = command.output().context(UnableToExecuteCompiler)?;
+        let output = run_command_with_timeout(command)?;
 
         Ok(ExecuteResponse {
             success: output.status.success(),
@@ -158,9 +184,9 @@ impl Sandbox {
 
     pub fn format(&self, req: &FormatRequest) -> Result<FormatResponse> {
         self.write_source_code(&req.code)?;
-        let mut command = self.format_command();
+        let command = self.format_command(req);
 
-        let output = command.output().context(UnableToExecuteCompiler)?;
+        let output = run_command_with_timeout(command)?;
 
         Ok(FormatResponse {
             success: output.status.success(),
@@ -172,9 +198,9 @@ impl Sandbox {
 
     pub fn clippy(&self, req: &ClippyRequest) -> Result<ClippyResponse> {
         self.write_source_code(&req.code)?;
-        let mut command = self.clippy_command(req);
+        let command = self.clippy_command(req);
 
-        let output = command.output().context(UnableToExecuteCompiler)?;
+        let output = run_command_with_timeout(command)?;
 
         Ok(ClippyResponse {
             success: output.status.success(),
@@ -185,9 +211,9 @@ impl Sandbox {
 
     pub fn miri(&self, req: &MiriRequest) -> Result<MiriResponse> {
         self.write_source_code(&req.code)?;
-        let mut command = self.miri_command(req);
+        let command = self.miri_command(req);
 
-        let output = command.output().context(UnableToExecuteCompiler)?;
+        let output = run_command_with_timeout(command)?;
 
         Ok(MiriResponse {
             success: output.status.success(),
@@ -201,7 +227,7 @@ impl Sandbox {
         command.args(&[Channel::Stable.container_name()]);
         command.args(&["cat", "crate-information.json"]);
 
-        let output = command.output().context(UnableToExecuteCompiler)?;
+        let output = run_command_with_timeout(command)?;
 
         let crate_info: Vec<CrateInformationInner> = ::serde_json::from_slice(&output.stdout).context(UnableToParseCrateInformation)?;
 
@@ -217,7 +243,7 @@ impl Sandbox {
         command.args(&[channel.container_name()]);
         command.args(&["rustc", "--version", "--verbose"]);
 
-        let output = command.output().context(UnableToExecuteCompiler)?;
+        let output = run_command_with_timeout(command)?;
         let version_output = vec_to_str(output.stdout)?;
 
         let mut info: BTreeMap<String, String> = version_output.lines().skip(1).filter_map(|line| {
@@ -255,8 +281,8 @@ impl Sandbox {
     }
 
     // Parses versions of the shape `toolname 0.0.0 (0000000 0000-00-00)`
-    fn cargo_tool_version(&self, mut command: Command) -> Result<Version> {
-        let output = command.output().context(UnableToExecuteCompiler)?;
+    fn cargo_tool_version(&self, command: Command) -> Result<Version> {
+        let output = run_command_with_timeout(command)?;
         let version_output = vec_to_str(output.stdout)?;
         let mut parts = version_output.split_whitespace().fuse().skip(1);
 
@@ -268,14 +294,10 @@ impl Sandbox {
     }
 
     fn write_source_code(&self, code: &str) -> Result<()> {
-        let data = code.as_bytes();
+        fs::write(&self.input_file, code).context(UnableToCreateSourceFile)?;
+        fs::set_permissions(&self.input_file, wide_open_permissions()).context(UnableToSetSourcePermissions)?;
 
-        let file = File::create(&self.input_file).context(UnableToCreateSourceFile)?;
-        let mut file = BufWriter::new(file);
-
-        file.write_all(data).context(UnableToCreateSourceFile)?;
-
-        log::debug!("Wrote {} bytes of source to {}", data.len(), self.input_file.display());
+        log::debug!("Wrote {} bytes of source to {}", code.len(), self.input_file.display());
         Ok(())
     }
 
@@ -305,10 +327,12 @@ impl Sandbox {
         cmd
     }
 
-    fn format_command(&self) -> Command {
+    fn format_command(&self, req: impl EditionRequest) -> Command {
         let crate_type = CrateType::Binary;
 
         let mut cmd = self.docker_command(Some(crate_type));
+
+        cmd.apply_edition(req);
 
         cmd.arg("rustfmt").args(&["cargo", "fmt"]);
 
@@ -370,17 +394,20 @@ fn basic_secure_docker_command() -> Command {
         .arg("run")
         .arg("--rm")
         .arg("--cap-drop=ALL")
+        // Needed to allow overwriting the file
         .arg("--cap-add=DAC_OVERRIDE")
         .arg("--security-opt=no-new-privileges")
         .args(&["--workdir", "/playground"])
         .args(&["--net", "none"])
         .args(&["--memory", "256m"])
         .args(&["--memory-swap", "320m"])
-        .args(&["--env", "PLAYGROUND_TIMEOUT=60"]);
+        .args(&["--env", &format!("PLAYGROUND_TIMEOUT={}", DOCKER_PROCESS_TIMEOUT_SOFT.as_secs())]);
 
     if cfg!(feature = "fork-bomb-prevention") {
         cmd.args(&["--pids-limit", "512"]);
     }
+
+    cmd.kill_on_drop(true);
 
     cmd
 }
@@ -458,6 +485,16 @@ fn read(path: &Path) -> Result<Option<String>> {
     let mut s = String::new();
     f.read_to_string(&mut s).context(UnableToReadOutput)?;
     Ok(Some(s))
+}
+
+#[tokio::main]
+async fn run_command_with_timeout(mut command: Command) -> Result<std::process::Output> {
+    let timeout = DOCKER_PROCESS_TIMEOUT_HARD;
+
+    tokio::time::timeout(timeout, command.output())
+        .await
+        .context(CompilerExecutionTimedOut { timeout })?
+        .context(UnableToExecuteCompiler)
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -709,6 +746,11 @@ pub struct ExecuteResponse {
 #[derive(Debug, Clone)]
 pub struct FormatRequest {
     pub code: String,
+    pub edition: Option<Edition>,
+}
+
+impl EditionRequest for FormatRequest {
+    fn edition(&self) -> Option<Edition> { self.edition }
 }
 
 #[derive(Debug, Clone)]
@@ -914,14 +956,14 @@ mod test {
         assert!(resp.stdout.contains("nightly"));
     }
 
-    // Code that will only work in Rust 2018
+    // Code that will only work in Rust 2015
     const EDITION_CODE: &str = r#"
-    macro_rules! foo {
-        ($($a:ident)?) => {}
+    fn main() {
+        let async = true;
     }
-
-    fn main() {}
     "#;
+
+    const EDITION_ERROR: &str = "found keyword `async`";
 
     #[test]
     fn rust_edition_default() -> Result<()> {
@@ -931,10 +973,9 @@ mod test {
             ..ExecuteRequest::default()
         };
 
-        let sb = Sandbox::new()?;
-        let resp = sb.execute(&req)?;
+        let resp = Sandbox::new()?.execute(&req)?;
 
-        assert!(resp.stderr.contains("`?` is not a macro repetition operator"));
+        assert!(!resp.stderr.contains(EDITION_ERROR), "was: {}", resp.stderr);
         Ok(())
     }
 
@@ -947,10 +988,9 @@ mod test {
             ..ExecuteRequest::default()
         };
 
-        let sb = Sandbox::new()?;
-        let resp = sb.execute(&req)?;
+        let resp = Sandbox::new()?.execute(&req)?;
 
-        assert!(resp.stderr.contains("`?` is not a macro repetition operator"));
+        assert!(!resp.stderr.contains(EDITION_ERROR), "was: {}", resp.stderr);
         Ok(())
     }
 
@@ -963,10 +1003,9 @@ mod test {
             ..ExecuteRequest::default()
         };
 
-        let sb = Sandbox::new()?;
-        let resp = sb.execute(&req)?;
+        let resp = Sandbox::new()?.execute(&req)?;
 
-        assert!(!resp.stderr.contains("`crate` in paths is experimental"));
+        assert!(resp.stderr.contains(EDITION_ERROR), "was: {}", resp.stderr);
         Ok(())
     }
 
@@ -980,6 +1019,8 @@ mod test {
     }
     "#;
 
+    const BACKTRACE_NOTE: &str = "run with `RUST_BACKTRACE=1` environment variable to display a backtrace";
+
     #[test]
     fn backtrace_disabled() -> Result<()> {
         let req = ExecuteRequest {
@@ -991,8 +1032,8 @@ mod test {
         let sb = Sandbox::new()?;
         let resp = sb.execute(&req)?;
 
-        assert!(resp.stderr.contains("Run with `RUST_BACKTRACE=1` for a backtrace"));
-        assert!(!resp.stderr.contains("stack backtrace:"));
+        assert!(resp.stderr.contains(BACKTRACE_NOTE), "Was: {}", resp.stderr);
+        assert!(!resp.stderr.contains("stack backtrace:"), "Was: {}", resp.stderr);
 
         Ok(())
     }
@@ -1008,8 +1049,8 @@ mod test {
         let sb = Sandbox::new()?;
         let resp = sb.execute(&req)?;
 
-        assert!(!resp.stderr.contains("Run with `RUST_BACKTRACE=1` for a backtrace"));
-        assert!(resp.stderr.contains("stack backtrace:"));
+        assert!(!resp.stderr.contains(BACKTRACE_NOTE), "Was: {}", resp.stderr);
+        assert!(resp.stderr.contains("stack backtrace:"), "Was: {}", resp.stderr);
 
         Ok(())
     }
@@ -1078,6 +1119,7 @@ mod test {
     fn formatting_code() {
         let req = FormatRequest {
             code: "fn foo () { method_call(); }".to_string(),
+            edition: None,
         };
 
         let sb = Sandbox::new().expect("Unable to create sandbox");
@@ -1088,6 +1130,44 @@ mod test {
         assert_eq!(lines[0], "fn foo() {");
         assert_eq!(lines[1], "    method_call();");
         assert_eq!(lines[2], "}");
+    }
+
+    // Code that is only syntactically valid in Rust 2018
+    const FORMAT_IN_EDITION_2018: &str = r#"fn main() { use std::num::ParseIntError; let result: Result<i32, ParseIntError> = try { "1".parse::<i32>()? + "2".parse::<i32>()? + "3".parse::<i32>()? }; assert_eq!(result, Ok(6)); }"#;
+
+    const FORMAT_ERROR: &str = r#"error: expected identifier, found `"1"`"#;
+
+    #[test]
+    fn formatting_code_edition_2015() -> Result<()> {
+        let req = FormatRequest {
+            code: FORMAT_IN_EDITION_2018.to_string(),
+            edition: Some(Edition::Rust2015),
+        };
+
+        let resp = Sandbox::new()?.format(&req)?;
+
+        assert!(resp.stderr.contains(FORMAT_ERROR));
+        Ok(())
+    }
+
+    #[test]
+    fn formatting_code_edition_2018() -> Result<()> {
+        let req = FormatRequest {
+            code: FORMAT_IN_EDITION_2018.to_string(),
+            edition: Some(Edition::Rust2018),
+        };
+
+        let resp = Sandbox::new()?.format(&req)?;
+        assert!(!resp.stderr.contains(FORMAT_ERROR));
+
+        let lines: Vec<_> = resp.code.lines().collect();
+        assert_eq!(lines[0], r#"fn main() {"#);
+        assert_eq!(lines[1], r#"    use std::num::ParseIntError;"#);
+        assert_eq!(lines[2], r#"    let result: Result<i32, ParseIntError> ="#);
+        assert_eq!(lines[3], r#"        try { "1".parse::<i32>()? + "2".parse::<i32>()? + "3".parse::<i32>()? };"#);
+        assert_eq!(lines[4], r#"    assert_eq!(result, Ok(6));"#);
+        assert_eq!(lines[5], r#"}"#);
+        Ok(())
     }
 
     #[test]
@@ -1152,9 +1232,9 @@ mod test {
         let sb = Sandbox::new()?;
         let resp = sb.miri(&req)?;
 
-        assert!(resp.stderr.contains("Pointer must be in-bounds and live at offset 1"));
-        assert!(resp.stderr.contains("outside bounds of allocation"));
-        assert!(resp.stderr.contains("which has size 0"));
+        assert!(resp.stderr.contains("pointer must be in-bounds at offset 1"), "was: {}", resp.stderr);
+        assert!(resp.stderr.contains("outside bounds of allocation"), "was: {}", resp.stderr);
+        assert!(resp.stderr.contains("which has size 0"), "was: {}", resp.stderr);
         Ok(())
     }
 
@@ -1219,6 +1299,43 @@ mod test {
         let resp = sb.execute(&req).expect("Unable to execute code");
 
         assert!(resp.stderr.contains("Killed"));
+    }
+
+    #[test]
+    fn wallclock_time_is_limited_from_outside() {
+        let code = r##"
+            use std::{process::Command, thread, time::Duration};
+
+            fn main() {
+                let output = Command::new("pgrep").args(&["timeout"]).output().unwrap();
+                assert!(output.status.success());
+
+                let out = String::from_utf8(output.stdout).expect("Unable to parse output");
+                let timeout_pid: u32 = out.trim().parse().expect("Unable to find timeout PID");
+
+                let output = Command::new("sh")
+                    .args(&["-c", &format!("kill -s STOP {}", timeout_pid)])
+                    .output()
+                    .unwrap();
+                assert!(output.status.success());
+
+                for _ in 0.. {
+                    thread::sleep(Duration::from_secs(1));
+                }
+            }
+        "##;
+
+        let req = ExecuteRequest {
+            code: code.to_string(),
+            ..ExecuteRequest::default()
+        };
+
+        let sb = Sandbox::new().expect("Unable to create sandbox");
+        match sb.execute(&req) {
+            Ok(_) => panic!("Expected an error"),
+            Err(Error::CompilerExecutionTimedOut{..}) => {/* Ok */}
+            Err(e) => panic!("Got the wrong error: {}", e),
+        }
     }
 
     #[test]

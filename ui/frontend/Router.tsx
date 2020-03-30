@@ -1,13 +1,13 @@
 import React from 'react';
 
-import createHistory from 'history/createBrowserHistory';
+import { createBrowserHistory as createHistory } from 'history';
 import { createRouter } from './uss-router';
 import UssRouter from './uss-router/Router';
 
 import qs from 'qs';
 import Route from 'route-parser';
 
-import { helpPageLoad, indexPageLoad } from './actions';
+import * as actions from './actions';
 
 const homeRoute = new Route('/');
 const helpRoute = new Route('/help');
@@ -46,13 +46,13 @@ const locationToAction = location => {
   const matchedHelp = helpRoute.match(location.pathname);
 
   if (matchedHelp) {
-    return helpPageLoad();
+    return actions.helpPageLoad();
   }
 
   const matched = homeRoute.match(location.pathname);
 
   if (matched) {
-    return indexPageLoad(qs.parse(location.search.slice(1)));
+    return actions.indexPageLoad(qs.parse(location.search.slice(1)));
   }
 
   return null;
@@ -61,7 +61,7 @@ const locationToAction = location => {
 export default class Router extends React.Component<RouterProps> {
   private router: any;
 
-  constructor(props) {
+  public constructor(props) {
     super(props);
 
     const history = createHistory();

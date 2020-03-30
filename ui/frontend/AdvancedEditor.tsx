@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { connect } from 'react-redux';
 
 import State from './state';
-import { CommonEditorProps, Crate, Edition, Focus } from './types';
+import { CommonEditorProps, Crate, Edition, Focus, PairCharacters } from './types';
 
-const displayExternCrateAutocomplete = (editor: any, autocompleteOnUse: boolean) => {
+type Ace = typeof import('ace-builds');
+type AceEditor = import('ace-builds').Ace.Editor;
+type AceCompleter = import('ace-builds').Ace.Completer;
+
+const displayExternCrateAutocomplete = (editor: AceEditor, autocompleteOnUse: boolean) => {
   const { session } = editor;
   const pos = editor.getCursorPosition();
   const line = session.getLine(pos.row);
@@ -14,14 +18,8 @@ const displayExternCrateAutocomplete = (editor: any, autocompleteOnUse: boolean)
     (autocompleteOnUse && !!precedingText.match(/^\s*use\s+(?!crate|self|super)\w*$/));
 };
 
-interface AutocompleteData {
-  crates: Crate[];
-  autocompleteOnUse: boolean;
-}
-
-function buildCrateAutocompleter(dataSource: () => AutocompleteData) {
-  function getCompletions(editor, session, pos, prefix, callback) {
-    const { crates, autocompleteOnUse } = dataSource();
+const buildCrateAutocompleter = (autocompleteOnUse: boolean, crates: Crate[]): AceCompleter => ({
+  getCompletions: (editor, _session, _pos, _prefix, callback) => {
     let suggestions = [];
 
     if (displayExternCrateAutocomplete(editor, autocompleteOnUse)) {
@@ -36,54 +34,65 @@ function buildCrateAutocompleter(dataSource: () => AutocompleteData) {
     }
 
     callback(null, suggestions);
-  }
+  },
+});
 
-  return {
-    getCompletions,
-  };
-}
+function useRafDebouncedFunction<A extends any[]>(fn: (...args: A) => void, onCall?: (...args: A) => void) {
+  const timeout = useRef<number>();
 
-class AdvancedEditor extends React.PureComponent<AdvancedEditorProps> {
-  private _editor: any;
-  private trackEditor = component => this._editor = component;
-
-  public render() {
-    const { ace, AceEditor, keybinding, theme, code, onEditCode } = this.props;
-
-    if (keybinding === 'vim') {
-      const { CodeMirror: { Vim } } = ace.acequire('ace/keyboard/vim');
-      Vim.defineEx('write', 'w', (cm, _input) => {
-        cm.ace.execCommand('executeCode');
-      });
+  return useCallback((...args: A): void => {
+    if (timeout.current) {
+      window.cancelAnimationFrame(timeout.current);
     }
 
-    return (
-      <AceEditor
-        ref={this.trackEditor}
-        mode="rust-playground"
-        keyboardHandler={keybinding}
-        theme={theme}
-        value={code}
-        onChange={onEditCode}
-        name="editor"
-        width="100%"
-        height="100%"
-        editorProps={{ $blockScrolling: true }} />
-    );
-  }
-
-  public componentDidMount() {
-    const { _editor: { editor } } = this;
-
-    editor.commands.addCommand({
-      name: 'executeCode',
-      bindKey: {
-        win: 'Ctrl-Enter',
-        mac: 'Ctrl-Enter|Command-Enter',
-      },
-      exec: this.props.execute,
-      readOnly: true,
+    timeout.current = window.requestAnimationFrame(() => {
+      fn(...args);
+      if (onCall) { onCall(...args); }
     });
+  }, [fn, onCall, timeout]);
+}
+
+interface AdvancedEditorProps extends AdvancedEditorAsyncProps {
+  ace: Ace;
+}
+
+interface AdvancedEditorProps {
+  ace: Ace;
+  autocompleteOnUse: boolean;
+  code: string;
+  execute: () => any;
+  keybinding?: string;
+  onEditCode: (_: string) => any;
+  position: {
+    line: number;
+    column: number;
+  };
+  theme: string;
+  crates: Crate[];
+  focus?: Focus;
+  pairCharacters: PairCharacters;
+}
+
+// Run an effect when the editor or prop changes
+function useEditorProp<T>(editor: AceEditor, prop: T, whenPresent: (editor: AceEditor, prop: T) => void) {
+  useEffect(() => {
+    if (editor) {
+      return whenPresent(editor, prop);
+    }
+  }, [editor, prop, whenPresent]);
+}
+
+const AdvancedEditor: React.SFC<AdvancedEditorProps> = props => {
+  const [editor, setEditor] = useState<AceEditor>(null);
+  const child = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!child.current) { return; }
+
+    const editor = props.ace.edit(child.current, {
+      mode: 'ace/mode/rust',
+    });
+    setEditor(editor);
 
     // The default keybinding of control/command-l interferes with
     // the browser's "edit the location" keycommand which I think
@@ -93,78 +102,175 @@ class AdvancedEditor extends React.PureComponent<AdvancedEditorProps> {
       win: 'Ctrl-Shift-L',
       mac: 'Command-Shift-L',
     };
-    editor.commands.removeCommand(gotoCommand.name);
     editor.commands.addCommand(gotoCommand);
 
     editor.setOptions({
       enableBasicAutocompletion: true,
     });
 
-    // When the user types either `extern crate `  or `use `, automatically
-    // open the autocomplete. This should help people understand that
-    // there are crates available.
-    editor.commands.on('afterExec', event => {
-      const { editor, command } = event;
+    const danglingElement = child.current;
 
+    return () => {
+      editor.destroy();
+      setEditor(null);
+      danglingElement.textContent = '';
+    };
+  }, [props.ace, child]);
+
+  useEditorProp(editor, props.execute, useCallback((editor, execute) => {
+    // TODO: Remove command?
+    editor.commands.addCommand({
+      name: 'executeCode',
+      bindKey: {
+        win: 'Ctrl-Enter',
+        mac: 'Ctrl-Enter|Command-Enter',
+      },
+      exec: execute,
+      readOnly: true,
+    });
+  }, []));
+
+  const autocompleteProps = useMemo(() => ({
+    autocompleteOnUse: props.autocompleteOnUse,
+    crates: props.crates,
+  }), [props.autocompleteOnUse, props.crates]);
+
+  // When the user types either `extern crate ` or `use `, automatically
+  // open the autocomplete. This should help people understand that
+  // there are crates available.
+  useEditorProp(editor, autocompleteProps, useCallback((editor, { autocompleteOnUse, crates }) => {
+    editor.commands.on('afterExec', ({ editor, command }) => {
       if (!(command.name === 'backspace' || command.name === 'insertstring')) {
         return;
       }
 
-      if (displayExternCrateAutocomplete(editor, this.props.autocompleteOnUse)) {
+      if (displayExternCrateAutocomplete(editor, autocompleteOnUse)) {
         editor.execCommand('startAutocomplete');
       }
     });
 
-    editor.completers = [buildCrateAutocompleter(() => this.props)];
-  }
+    editor.completers = [buildCrateAutocompleter(autocompleteOnUse, crates)];
+  }, []));
 
-  public componentDidUpdate(prevProps, _prevState) {
-    // There's a tricky bug with Ace:
-    //
-    // 1. Open the page
-    // 2. Fill up the page with text but do not cause scrolling
-    // 3. Run the code (causing the pane to cover some of the text
-    // 4. Try to scroll
-    //
-    // Ace doesn't know that we changed the visible area and so
-    // doesn't recalculate. Knowing if the focus changed is enough
-    // to force such a recalculation.
-    if (this.props.focus !== prevProps.focus) {
-      this._editor.editor.resize();
+  // Both Ace and the playground want to be the One True Owner of
+  // the textual content. This can cause issues because the Redux
+  // store will attempt to change Ace in response to changes
+  // *originating* from Ace. In addition, Ace can generate multiple
+  // `change` events in response to what looks like a single user
+  // action. This includes:
+  //
+  // - Auto-indenting after pressing return
+  // - Invoking undo
+  // - Multi-cursor editing
+  //
+  // To avoid issues...
+  //
+  // 1. When we are setting the Ace value based on the prop, we
+  //    prevent generating outgoing events. This requires that the
+  //    events are synchronously generated during the call to
+  //    `setValue`
+  //
+  // 2. We throttle outgoing events to once per animation frame,
+  //    only sending the most recent update. This reduces the updates
+  //    to Redux and thus the number of updates to our props. While
+  //    this covers a lot of the problems, it does not handle rapid
+  //    typing (a.k.a. banging on the keyboard).
+  //
+  // 3. When we do generate an outgoing event, we log it. If we see
+  //    that same event come back next via the property, we ignore it.
+  //
+  // 4. When all else fails, we ignore the prop if the value to set is
+  //    what Ace already has.
+  const doingSetProp = useRef(false);
+  const previouslyNotified = useRef([]);
+  const onEditCodeDebounced = useRafDebouncedFunction(
+    props.onEditCode,
+    useCallback(code => previouslyNotified.current.push(code), [previouslyNotified]),
+  );
+
+  useEditorProp(editor, onEditCodeDebounced, useCallback((editor, onEditCode) => {
+    const listener = editor.on('change', _delta => {
+      if (!doingSetProp.current) {
+        onEditCode(editor.getValue());
+      }
+    });
+
+    return () => {
+      editor.off('change', listener);
+    };
+  }, []));
+
+  useEditorProp(editor, props.code, useCallback((editor, code) => {
+    // Is this prop update the result of our own `change` event?
+    const last = previouslyNotified.current.shift();
+    if (code === last) {
+      return;
     }
-    this.gotoPosition(prevProps.position, this.props.position);
-  }
 
-  private gotoPosition(oldPosition, newPosition) {
-    const editor = this._editor;
+    // It wasn't; discard any remaining self-generated events and resync
+    previouslyNotified.current = [];
 
-    if (!newPosition || !editor) { return; }
-    if (newPosition === oldPosition) { return; }
+    // Avoid spuriously resetting the text
+    if (editor.getValue() === code) {
+      return;
+    }
 
-    const { line, column } = newPosition;
+    doingSetProp.current = true;
+    const currentSelection = editor.selection.toJSON();
+    editor.setValue(code);
+    editor.selection.fromJSON(currentSelection);
+    doingSetProp.current = false;
+  }, []));
 
+  useEditorProp(editor, props.theme, useCallback((editor, theme) => {
+    editor.setTheme(`ace/theme/${theme}`);
+  }, []));
+
+  const keybindingProps = useMemo(() => ({
+    keybinding: props.keybinding,
+    ace: props.ace,
+  }), [props.keybinding, props.ace]);
+
+  useEditorProp(editor, keybindingProps, useCallback((editor, { keybinding, ace }) => {
+    const handler = keybinding ? `ace/keyboard/${keybinding}` : null;
+    editor.setKeyboardHandler(handler);
+
+    if (keybinding === 'vim') {
+      const { CodeMirror: { Vim } } = ace.require('ace/keyboard/vim');
+      Vim.defineEx('write', 'w', (cm, _input) => {
+        cm.ace.execCommand('executeCode');
+      });
+    }
+  }, []));
+
+  useEditorProp(editor, props.pairCharacters, useCallback((editor, pairCharacters) => {
+    editor.setBehavioursEnabled(pairCharacters !== PairCharacters.Disabled);
+  }, []));
+
+  useEditorProp(editor, props.position, useCallback((editor, { line, column }) => {
     // Columns are zero-indexed in ACE
-    editor.editor.gotoLine(line, column - 1);
-    editor.editor.focus();
-  }
-}
+    editor.gotoLine(line, column - 1, false);
+    editor.focus();
+  }, []));
 
-interface AdvancedEditorProps {
-  ace: any;
-  AceEditor: React.ReactType;
-  autocompleteOnUse: boolean;
-  code: string;
-  execute: () => any;
-  keybinding?: string;
-  onEditCode: (_: string) => any;
-  position: {
-    line: number,
-    column: number,
-  };
-  theme: string;
-  crates: Crate[];
-  focus?: Focus;
-}
+  // There's a tricky bug with Ace:
+  //
+  // 1. Open the page
+  // 2. Fill up the page with text but do not cause scrolling
+  // 3. Run the code (causing the pane to cover some of the text)
+  // 4. Try to scroll
+  //
+  // Ace doesn't know that we changed the visible area and so
+  // doesn't recalculate. Knowing if the focus changed is enough
+  // to force such a recalculation.
+  useEditorProp(editor, props.focus, useCallback((editor, _focus) => {
+    editor.resize();
+  }, []));
+
+  return (
+    <div className="editor-advanced" ref={child} />
+  );
+};
 
 enum LoadState {
   Unloaded,
@@ -184,8 +290,25 @@ enum LoadState {
 // as ACE should never be loaded.
 //
 // Themes and keybindings can be changed at runtime.
-class AdvancedEditorAsync extends React.Component<AdvancedEditorProps, AdvancedEditorAsyncState> {
-  constructor(props) {
+
+interface AdvancedEditorAsyncProps {
+  autocompleteOnUse: boolean;
+  code: string;
+  execute: () => any;
+  keybinding?: string;
+  onEditCode: (_: string) => any;
+  position: {
+    line: number;
+    column: number;
+  };
+  theme: string;
+  crates: Crate[];
+  focus?: Focus;
+  pairCharacters: PairCharacters;
+}
+
+class AdvancedEditorAsync extends React.Component<AdvancedEditorAsyncProps, AdvancedEditorAsyncState> {
+  public constructor(props) {
     super(props);
     this.state = {
       modeState: LoadState.Unloaded,
@@ -196,8 +319,8 @@ class AdvancedEditorAsync extends React.Component<AdvancedEditorProps, AdvancedE
 
   public render() {
     if (this.isLoaded()) {
-      const { ace, AceEditor, theme, keybinding } = this.state;
-      return <AdvancedEditor {...this.props} AceEditor={AceEditor} ace={ace} theme={theme} keybinding={keybinding} />;
+      const { ace, theme, keybinding } = this.state;
+      return <AdvancedEditor {...this.props} ace={ace} theme={theme} keybinding={keybinding} />;
     } else {
       return <div>Loading the ACE editor...</div>;
     }
@@ -207,7 +330,7 @@ class AdvancedEditorAsync extends React.Component<AdvancedEditorProps, AdvancedE
     this.load();
   }
 
-  public componentDidUpdate(prevProps, prevState) {
+  public componentDidUpdate(_prevProps, _prevState) {
     if (this.isLoadNeeded()) {
       this.load();
     }
@@ -235,8 +358,8 @@ class AdvancedEditorAsync extends React.Component<AdvancedEditorProps, AdvancedE
   }
 
   private isAceLoadNeeded() {
-    const { AceEditor, modeState } = this.state;
-    return !AceEditor && modeState !== LoadState.Loading;
+    const { ace, modeState } = this.state;
+    return !ace && modeState !== LoadState.Loading;
   }
 
   private async loadAce() {
@@ -244,9 +367,9 @@ class AdvancedEditorAsync extends React.Component<AdvancedEditorProps, AdvancedE
 
     this.setState({ modeState: LoadState.Loading });
 
-    const { default: { AceEditor, ace } } = await this.requireLibraries();
+    const { default: { ace } } = await this.requireLibraries();
 
-    this.setState({ AceEditor, ace, modeState: LoadState.Loaded });
+    this.setState({ ace, modeState: LoadState.Loaded });
   }
 
   private isKeybindingBuiltin() {
@@ -272,8 +395,8 @@ class AdvancedEditorAsync extends React.Component<AdvancedEditorProps, AdvancedE
 
     await this.requireLibraries();
     await import(
-      /* webpackChunkName: "brace-keybinding-[request]" */
-      `brace/keybinding/${keybinding}`,
+      /* webpackChunkName: "ace-[request]" */
+      `ace-builds/src-noconflict/keybinding-${keybinding}`
     );
 
     this.setState({ keybinding, keybindingState: LoadState.Loaded });
@@ -293,8 +416,8 @@ class AdvancedEditorAsync extends React.Component<AdvancedEditorProps, AdvancedE
 
     await this.requireLibraries();
     await import(
-      /* webpackChunkName: "brace-theme-[request]" */
-      `brace/theme/${theme}`,
+      /* webpackChunkName: "ace-[request]" */
+      `ace-builds/src-noconflict/theme-${theme}`
     );
 
     this.setState({ theme, themeState: LoadState.Loaded });
@@ -303,7 +426,7 @@ class AdvancedEditorAsync extends React.Component<AdvancedEditorProps, AdvancedE
   private async requireLibraries() {
     return import(
       /* webpackChunkName: "advanced-editor" */
-      './advanced-editor',
+      './advanced-editor'
     );
   }
 }
@@ -314,8 +437,8 @@ interface AdvancedEditorAsyncState {
   themeState: LoadState;
   keybindingState: LoadState;
   modeState: LoadState;
-  AceEditor?: React.ReactType;
-  ace?: any;
+  ace?: Ace;
+  pairCharacters?: PairCharacters;
 }
 
 interface PropsFromState {
@@ -323,13 +446,15 @@ interface PropsFromState {
   keybinding?: string;
   focus?: Focus;
   autocompleteOnUse: boolean;
+  pairCharacters: PairCharacters;
 }
 
 const mapStateToProps = (state: State) => {
-  const { configuration: { theme, keybinding } } = state;
+  const { configuration: { theme, keybinding, pairCharacters } } = state;
 
   return {
     theme,
+    pairCharacters,
     keybinding: keybinding === 'ace' ? null : keybinding,
     focus: state.output.meta.focus,
     autocompleteOnUse: state.configuration.edition === Edition.Rust2018,

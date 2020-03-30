@@ -6,7 +6,7 @@ use hubcaps::{
 use hyper;
 use hyper_tls;
 use std::collections::HashMap;
-use tokio::{prelude::Future, runtime::current_thread::Runtime};
+use tokio1::{prelude::Future, runtime::current_thread::Runtime};
 
 const FILENAME: &str = "playground.rs";
 const DESCRIPTION: &str = "Code shared from the Rust Playground";
@@ -31,7 +31,7 @@ impl From<gists::Gist> for Gist {
             _ => {
                 files
                     .into_iter()
-                    .map(|(name, content)| format!("// {}\n\n{}\n\n", name, content))
+                    .map(|(name, content)| format!("// {}\n{}\n\n", name, content))
                     .collect()
             }
         };
@@ -65,7 +65,7 @@ pub fn create_future(token: String, code: String) -> impl Future<Item = Gist, Er
 
     let options = GistOptions {
         description: Some(DESCRIPTION.into()),
-        public: Some(true),
+        public: Some(false),
         files,
     };
 

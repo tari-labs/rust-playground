@@ -1,100 +1,56 @@
-import React from 'react';
-import { connect } from 'react-redux';
+import React, { useCallback } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 
 import AdvancedOptionsMenu from './AdvancedOptionsMenu';
 import BuildMenu from './BuildMenu';
 import ChannelMenu from './ChannelMenu';
 import ConfigMenu from './ConfigMenu';
-import HeaderButton, { RightIcon as RightIconButton } from './HeaderButton';
+import HeaderButton from './HeaderButton';
 import { BuildIcon, ConfigIcon, HelpIcon, MoreOptionsActiveIcon, MoreOptionsIcon } from './Icon';
 import ModeMenu from './ModeMenu';
-import PopButton, { PopButtonEnhancements } from './PopButton';
+import PopButton from './PopButton';
 import { SegmentedButton, SegmentedButtonSet, SegmentedLink } from './SegmentedButton';
 import ToolsMenu from './ToolsMenu';
 
-import {
-  navigateToHelp,
-  performGistSave,
-  performPrimaryAction,
-} from './actions';
-import {
-  getAdvancedOptionsSet,
-  getChannelLabel,
-  getExecutionLabel,
-  getModeLabel,
-} from './selectors';
-import State from './state';
+import * as actions from './actions';
+import * as selectors from './selectors';
 
-interface HeaderProps {
-  executionLabel: string;
-  modeLabel: string;
-  channelLabel: string;
-  navigateToHelp: () => any;
-  execute: () => any;
-  gistSave: () => any;
-  advancedOptionsSet: boolean;
-}
-
-const Header: React.SFC<HeaderProps> = props => (
+const Header: React.SFC = () => (
   <div className="header">
     <HeaderSet id="build">
       <SegmentedButtonSet>
-        <SegmentedButton isBuild onClick={props.execute}>
-          <RightIconButton icon={<BuildIcon />}>
-            {props.executionLabel}
-          </RightIconButton>
-        </SegmentedButton>
-        <PopButton button={BuildMenuButton}>{({ popButtonClose }) => (
-          <BuildMenu close={popButtonClose} />
-        )}</PopButton>
+        <ExecuteButton />
+        <BuildMenuButton />
       </SegmentedButtonSet>
     </HeaderSet>
     <HeaderSet id="channel-mode">
       <SegmentedButtonSet>
-        <PopButton
-          button={p => <ModeMenuButton label={props.modeLabel} {...p} />}>{({ popButtonClose }) => (
-            <ModeMenu close={popButtonClose} />
-          )}</PopButton>
-        <PopButton
-          button={p => <ChannelMenuButton label={props.channelLabel}{...p} />}>{({ popButtonClose }) => (
-            <ChannelMenu close={popButtonClose} />
-          )}</PopButton>
-        <PopButton
-          button={({ ...p }) => <AdvancedOptionsMenuButton advancedOptionsSet={props.advancedOptionsSet} {...p} />}
-        >
-          <AdvancedOptionsMenu />
-        </PopButton>
+        <ModeMenuButton />
+        <ChannelMenuButton />
+        <AdvancedOptionsMenuButton />
       </SegmentedButtonSet>
     </HeaderSet>
     <HeaderSet id="share">
       <SegmentedButtonSet>
-        <SegmentedButton title="Create shareable links to this code" onClick={props.gistSave}>
-          <HeaderButton >Share</HeaderButton>
-        </SegmentedButton>
+        <ShareButton />
       </SegmentedButtonSet>
     </HeaderSet>
     <HeaderSet id="tools">
       <SegmentedButtonSet>
-        <PopButton button={ToolsMenuButton}>{({ popButtonClose }) => (
-          <ToolsMenu close={popButtonClose} />
-        )}</PopButton>
+        <ToolsMenuButton />
       </SegmentedButtonSet>
     </HeaderSet>
     <HeaderSet id="config">
       <SegmentedButtonSet>
-        <PopButton button={ConfigMenuButton}>{({ popButtonClose }) => (
-          <ConfigMenu close={popButtonClose} />
-        )}</PopButton>
+        <ConfigMenuButton />
       </SegmentedButtonSet>
     </HeaderSet>
     <HeaderSet id="help">
       <SegmentedButtonSet>
-        <SegmentedLink title="View help" action={props.navigateToHelp}>
-          <HeaderButton icon={<HelpIcon />} />
-        </SegmentedLink>
+        <HelpButton />
       </SegmentedButtonSet>
     </HeaderSet>
-  </div >
+  </div>
 );
 
 interface HeaderSetProps {
@@ -105,67 +61,109 @@ const HeaderSet: React.SFC<HeaderSetProps> = ({ id, children }) => (
   <div className={`header__set header__set--${id}`}>{children}</div>
 );
 
-const BuildMenuButton: React.SFC<PopButtonEnhancements> = ({ popButtonProps }) => (
-  <SegmentedButton title="Select what to build" {...popButtonProps}>
-    <HeaderButton icon={<MoreOptionsIcon />} />
-  </SegmentedButton>
-);
+const ExecuteButton: React.SFC = () => {
+  const executionLabel = useSelector(selectors.getExecutionLabel);
 
-interface ModeMenuButtonProps extends PopButtonEnhancements {
-  label: string;
+  const dispatch = useDispatch();
+  const execute = useCallback(() => dispatch(actions.performPrimaryAction()), [dispatch]);
+
+  return (
+    <SegmentedButton isBuild onClick={execute}>
+      <HeaderButton rightIcon={<BuildIcon />}>
+        {executionLabel}
+      </HeaderButton>
+    </SegmentedButton>
+  );
+};
+
+const BuildMenuButton: React.SFC = () => {
+  const Button = React.forwardRef<HTMLButtonElement, { toggle: () => void }>(({ toggle }, ref) => (
+    <SegmentedButton title="Select what to build" ref={ref} onClick={toggle}>
+      <HeaderButton icon={<MoreOptionsIcon />} />
+    </SegmentedButton>
+  ));
+  Button.displayName = 'BuildMenuButton.Button';
+
+  return <PopButton Button={Button} Menu={BuildMenu} />;
+};
+
+const ModeMenuButton: React.SFC = () => {
+  const label = useSelector(selectors.getModeLabel);
+
+  const Button = React.forwardRef<HTMLButtonElement, { toggle: () => void }>(({ toggle }, ref) => (
+    <SegmentedButton title="Mode &mdash; Choose the optimization level" ref={ref} onClick={toggle}>
+      <HeaderButton isExpandable>{label}</HeaderButton>
+    </SegmentedButton>
+  ));
+  Button.displayName = 'ModeMenuButton.Button';
+
+  return <PopButton Button={Button} Menu={ModeMenu} />;
+};
+
+const ChannelMenuButton: React.SFC = () => {
+  const label = useSelector(selectors.getChannelLabel);
+
+  const Button = React.forwardRef<HTMLButtonElement, { toggle: () => void }>(({ toggle }, ref) => (
+    <SegmentedButton title="Channel &mdash; Choose the Rust version" ref={ref} onClick={toggle}>
+      <HeaderButton isExpandable>{label}</HeaderButton>
+    </SegmentedButton>
+  ));
+  Button.displayName = 'ChannelMenuButton.Button';
+
+  return <PopButton Button={Button} Menu={ChannelMenu} />;
 }
 
-const ModeMenuButton: React.SFC<ModeMenuButtonProps> = ({ label, popButtonProps }) => (
-  <SegmentedButton title="Mode &mdash; Choose the optimization level" {...popButtonProps}>
-    <HeaderButton isExpandable>{label}</HeaderButton>
-  </SegmentedButton>
-);
+const AdvancedOptionsMenuButton: React.SFC = () => {
+  const advancedOptionsSet = useSelector(selectors.getAdvancedOptionsSet);
 
-interface ChannelMenuButtonProps extends PopButtonEnhancements {
-  label: string;
+  const Button = React.forwardRef<HTMLButtonElement, { toggle: () => void }>(({ toggle }, ref) => (
+    <SegmentedButton title="Advanced compilation flags" ref={ref} onClick={toggle}>
+      <HeaderButton icon={advancedOptionsSet ? <MoreOptionsActiveIcon /> : <MoreOptionsIcon />} />
+    </SegmentedButton>
+  ));
+  Button.displayName = 'AdvancedOptionsMenuButton.Button';
+
+  return <PopButton Button={Button} Menu={AdvancedOptionsMenu} />;
 }
 
-const ChannelMenuButton: React.SFC<ChannelMenuButtonProps> = ({ label, popButtonProps }) => (
-  <SegmentedButton title="Channel &mdash; Choose the Rust version"  {...popButtonProps}>
-    <HeaderButton isExpandable>{label}</HeaderButton>
-  </SegmentedButton>
+const ShareButton: React.SFC = () => {
+  const dispatch = useDispatch();
+  const gistSave = useCallback(() => dispatch(actions.performGistSave()), [dispatch]);
+
+  return (
+    <SegmentedButton title="Create shareable links to this code" onClick={gistSave}>
+      <HeaderButton>Share</HeaderButton>
+    </SegmentedButton>
+  );
+};
+
+
+const ToolsMenuButton: React.SFC = () => {
+  const Button = React.forwardRef<HTMLButtonElement, { toggle: () => void }>(({ toggle }, ref) => (
+    <SegmentedButton title="Run extra tools on the source code" ref={ref} onClick={toggle}>
+      <HeaderButton isExpandable>Tools</HeaderButton>
+    </SegmentedButton>
+  ));
+  Button.displayName = 'ToolsMenuButton.Button';
+
+  return <PopButton Button={Button} Menu={ToolsMenu} />;
+};
+
+const ConfigMenuButton: React.SFC = () => {
+  const Button = React.forwardRef<HTMLButtonElement, { toggle: () => void }>(({ toggle }, ref) => (
+    <SegmentedButton title="Show the configuration options" ref={ref} onClick={toggle}>
+      <HeaderButton icon={<ConfigIcon />} isExpandable>Config</HeaderButton>
+    </SegmentedButton>
+  ));
+  Button.displayName = 'ConfigMenuButton.Button';
+
+  return <PopButton Button={Button} Menu={ConfigMenu} />;
+};
+
+const HelpButton: React.SFC = () => (
+  <SegmentedLink title="View help" action={actions.navigateToHelp}>
+    <HeaderButton icon={<HelpIcon />} />
+  </SegmentedLink>
 );
 
-interface AdvancedOptionsMenuButtonProps extends PopButtonEnhancements {
-  advancedOptionsSet: boolean;
-}
-
-const AdvancedOptionsMenuButton: React.SFC<AdvancedOptionsMenuButtonProps> = props => (
-  <SegmentedButton
-    title="Advanced compilation flags"
-    {...props.popButtonProps}>
-    <HeaderButton icon={props.advancedOptionsSet ? <MoreOptionsActiveIcon /> : <MoreOptionsIcon />} />
-  </SegmentedButton>
-);
-
-const ToolsMenuButton: React.SFC<PopButtonEnhancements> = ({ popButtonProps }) => (
-  <SegmentedButton title="Run extra tools on the source code" {...popButtonProps}>
-    <HeaderButton isExpandable>Tools</HeaderButton>
-  </SegmentedButton>
-);
-
-const ConfigMenuButton: React.SFC<PopButtonEnhancements> = ({ popButtonProps }) => (
-  <SegmentedButton title="Show the configuration options" {...popButtonProps}>
-    <HeaderButton icon={<ConfigIcon />} isExpandable>Config</HeaderButton>
-  </SegmentedButton>
-);
-
-const mapStateToProps = (state: State) => ({
-  executionLabel: getExecutionLabel(state),
-  modeLabel: getModeLabel(state),
-  channelLabel: getChannelLabel(state),
-  navigateToHelp,
-  advancedOptionsSet: getAdvancedOptionsSet(state),
-});
-
-const mapDispatchToProps = ({
-  execute: performPrimaryAction,
-  gistSave: performGistSave,
-});
-
-export default connect(mapStateToProps, mapDispatchToProps)(Header);
+export default Header;

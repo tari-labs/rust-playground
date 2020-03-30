@@ -6,13 +6,23 @@ export function configureRustErrors({
   gotoPosition,
   reExecuteWithBacktrace,
 }) {
-  Prism.languages.rust_errors = { // eslint-disable-line camelcase
-    'warning': /^warning:.*$/m,
+  Prism.languages.rust_errors = { // eslint-disable-line @typescript-eslint/camelcase
+    'warning': {
+      pattern: /^warning(\[E\d+\])?:.*$/m,
+      inside: {
+        'error-explanation': /\[E\d+\]/,
+      },
+    },
     'error': {
       pattern: /^error(\[E\d+\])?:.*$/m,
       inside: {
         'error-explanation': /\[E\d+\]/,
-        'see-issue': /see issue #\d+/,
+      },
+    },
+    'note': {
+      pattern: /^\s*=\s*note:.*$/m,
+      inside: {
+        'see-issue': /see .*rust-lang\/rust\/issues\/\d+/,
       },
     },
     'error-location': /-->\s+(\/playground\/)?src\/.*\n/,
@@ -28,7 +38,7 @@ export function configureRustErrors({
         'backtrace-location': /src\/main.rs:(\d+)/,
       },
     },
-    'backtrace-enable': /Run with `RUST_BACKTRACE=1` for a backtrace/,
+    'backtrace-enable': /Run with `RUST_BACKTRACE=1` environment variable to display a backtrace/i,
   };
 
   Prism.hooks.add('wrap', env => {

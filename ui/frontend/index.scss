@@ -169,13 +169,18 @@ body {
     font-family: 'Source Code Pro', monospace;
 }
 
-#editor {
-    position: absolute;
-    // Height / width is applied to the element
-    @include body-monospace;
-}
-
 .editor {
+    width: 100%;
+    height: 100%;
+
+    &-advanced {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+
+        @include body-monospace;
+    }
+
     &-simple {
         position: absolute;
         width: 100%;
@@ -345,31 +350,6 @@ body {
         &:hover {
             background-color: darken(white, 10%);
         }
-    }
-}
-
-$PHI: 2.61803398875;
-
-.modal {
-    &-backdrop {
-        position: fixed;
-        left: 0;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: 10;
-    }
-
-    &-content {
-        margin: 0 auto;
-        background-color: #FFF;
-        border: 1px solid black;
-        padding: 1em;
-        margin-top: 10em;
-
-        width: 600px;
-        height: 950px / $PHI;
     }
 }
 
@@ -664,6 +644,7 @@ $header-transition: 0.2s ease-in-out;
 
   width: 100%;
   transition: color $header-transition;
+  user-select: text;
 }
 
 .button-menu-item {

@@ -1,4 +1,3 @@
-#![feature(try_from)]
 #![deny(rust_2018_idioms)]
 
 use corsware::{AllowedOrigins, CorsMiddleware, UniCase};
@@ -149,7 +148,7 @@ fn compile(req: &mut Request<'_, '_>) -> IronResult<Response> {
         sandbox
             .compile(&req)
             .map(CompileResponse::from)
-            .eager_context(Compilation)
+            .context(Compilation)
     })
 }
 
@@ -159,7 +158,7 @@ fn execute(req: &mut Request<'_, '_>) -> IronResult<Response> {
         sandbox
             .execute(&req)
             .map(ExecuteResponse::from)
-            .eager_context(Execution)
+            .context(Execution)
     })
 }
 
@@ -169,7 +168,7 @@ fn format(req: &mut Request<'_, '_>) -> IronResult<Response> {
         sandbox
             .format(&req)
             .map(FormatResponse::from)
-            .eager_context(Formatting)
+            .context(Formatting)
     })
 }
 
@@ -178,7 +177,7 @@ fn clippy(req: &mut Request<'_, '_>) -> IronResult<Response> {
         sandbox
             .clippy(&req.try_into()?)
             .map(ClippyResponse::from)
-            .eager_context(Linting)
+            .context(Linting)
     })
 }
 
@@ -187,7 +186,7 @@ fn miri(req: &mut Request<'_, '_>) -> IronResult<Response> {
         sandbox
             .miri(&req.try_into()?)
             .map(MiriResponse::from)
-            .eager_context(Interpreting)
+            .context(Interpreting)
     })
 }
 
@@ -276,7 +275,7 @@ fn evaluate(req: &mut Request<'_, '_>) -> IronResult<Response> {
         sandbox
             .execute(&req)
             .map(EvaluateResponse::from)
-            .eager_context(Evaluation)
+            .context(Evaluation)
     })
 }
 
@@ -479,45 +478,45 @@ fn cached(sandbox: Sandbox) -> CachedSandbox<'static> {
 
 #[derive(Debug, Snafu)]
 pub enum Error {
-    #[snafu::display("Sandbox creation failed: {}", source)]
+    #[snafu(display("Sandbox creation failed: {}", source))]
     SandboxCreation { source: sandbox::Error },
-    #[snafu::display("Compilation operation failed: {}", source)]
+    #[snafu(display("Compilation operation failed: {}", source))]
     Compilation { source: sandbox::Error },
-    #[snafu::display("Execution operation failed: {}", source)]
+    #[snafu(display("Execution operation failed: {}", source))]
     Execution { source: sandbox::Error },
-    #[snafu::display("Evaluation operation failed: {}", source)]
+    #[snafu(display("Evaluation operation failed: {}", source))]
     Evaluation { source: sandbox::Error },
-    #[snafu::display("Linting operation failed: {}", source)]
+    #[snafu(display("Linting operation failed: {}", source))]
     Linting { source: sandbox::Error },
-    #[snafu::display("Formatting operation failed: {}", source)]
+    #[snafu(display("Formatting operation failed: {}", source))]
     Formatting { source: sandbox::Error },
-    #[snafu::display("Interpreting operation failed: {}", source)]
+    #[snafu(display("Interpreting operation failed: {}", source))]
     Interpreting { source: sandbox::Error },
-    #[snafu::display("Caching operation failed: {}", source)]
+    #[snafu(display("Caching operation failed: {}", source))]
     Caching { source: sandbox::Error },
-    #[snafu::display("Unable to serialize response: {}", source)]
+    #[snafu(display("Unable to serialize response: {}", source))]
     Serialization { source: serde_json::Error },
-    #[snafu::display("Unable to deserialize request: {}", source)]
+    #[snafu(display("Unable to deserialize request: {}", source))]
     Deserialization { source: bodyparser::BodyError },
-    #[snafu::display("The value {:?} is not a valid target", value)]
+    #[snafu(display("The value {:?} is not a valid target", value))]
     InvalidTarget { value: String },
-    #[snafu::display("The value {:?} is not a valid assembly flavor", value)]
+    #[snafu(display("The value {:?} is not a valid assembly flavor", value))]
     InvalidAssemblyFlavor { value: String },
-    #[snafu::display("The value {:?} is not a valid demangle option", value)]
+    #[snafu(display("The value {:?} is not a valid demangle option", value))]
     InvalidDemangleAssembly { value: String },
-    #[snafu::display("The value {:?} is not a valid assembly processing option", value)]
+    #[snafu(display("The value {:?} is not a valid assembly processing option", value))]
     InvalidProcessAssembly { value: String },
-    #[snafu::display("The value {:?} is not a valid channel", value,)]
+    #[snafu(display("The value {:?} is not a valid channel", value,))]
     InvalidChannel { value: String },
-    #[snafu::display("The value {:?} is not a valid mode", value)]
+    #[snafu(display("The value {:?} is not a valid mode", value))]
     InvalidMode { value: String },
-    #[snafu::display("The value {:?} is not a valid edition", value)]
+    #[snafu(display("The value {:?} is not a valid edition", value))]
     InvalidEdition { value: String },
-    #[snafu::display("The value {:?} is not a valid crate type", value)]
+    #[snafu(display("The value {:?} is not a valid crate type", value))]
     InvalidCrateType { value: String },
-    #[snafu::display("No request was provided")]
+    #[snafu(display("No request was provided"))]
     RequestMissing,
-    #[snafu::display("The cache has been poisoned")]
+    #[snafu(display("The cache has been poisoned"))]
     CachePoisoned,
 }
 
@@ -584,6 +583,8 @@ struct ExecuteResponse {
 #[derive(Debug, Clone, Deserialize)]
 struct FormatRequest {
     code: String,
+    #[serde(default)]
+    edition: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -660,6 +661,10 @@ struct EvaluateRequest {
     version: String,
     optimize: String,
     code: String,
+    #[serde(default)]
+    edition: String,
+    #[serde(default)]
+    tests: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -750,6 +755,7 @@ impl TryFrom<FormatRequest> for sandbox::FormatRequest {
     fn try_from(me: FormatRequest) -> Result<Self> {
         Ok(sandbox::FormatRequest {
             code: me.code,
+            edition: parse_edition(&me.edition)?,
         })
     }
 }
@@ -847,9 +853,9 @@ impl TryFrom<EvaluateRequest> for sandbox::ExecuteRequest {
         Ok(sandbox::ExecuteRequest {
             channel: parse_channel(&me.version)?,
             mode: if me.optimize != "0" { sandbox::Mode::Release } else { sandbox::Mode::Debug },
-            edition: None, // FIXME: What should this be?
+            edition: parse_edition(&me.edition)?,
             crate_type: sandbox::CrateType::Binary,
-            tests: false,
+            tests: me.tests,
             backtrace: false,
             code: me.code,
         })

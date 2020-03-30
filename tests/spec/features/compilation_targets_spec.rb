@@ -37,7 +37,7 @@ RSpec.feature "Compiling to different formats", type: :feature, js: true do
     scenario "choosing to test the code" do
       in_build_menu { click_on(build_button: "Test") }
       within('.output-stdout') do
-        expect(page).to have_content "'a_test' panicked at 'assertion failed: false'"
+        expect(page).to have_content "panicked at 'assertion failed: false'"
       end
     end
   end
@@ -111,7 +111,7 @@ RSpec.feature "Compiling to different formats", type: :feature, js: true do
       in_build_menu { click_on("MIR") }
 
       within('.output-stderr') do
-        expect(page).to have_content 'an un-closed delimiter'
+        expect(page).to have_content 'an unclosed delimiter'
       end
     end
   end

@@ -2,7 +2,13 @@ import fetch from 'isomorphic-fetch';
 import { ThunkAction as ReduxThunkAction } from 'redux-thunk';
 import url from 'url';
 
-import { clippyRequestSelector, getCrateType, isAutoBuildSelector, runAsTest } from './selectors';
+import {
+  clippyRequestSelector,
+  formatRequestSelector,
+  getCrateType,
+  isAutoBuildSelector,
+  runAsTest,
+} from './selectors';
 import State from './state';
 import {
   AssemblyFlavor,
@@ -16,6 +22,7 @@ import {
   Notification,
   Orientation,
   Page,
+  PairCharacters,
   PrimaryAction,
   PrimaryActionAuto,
   PrimaryActionCore,
@@ -49,11 +56,11 @@ const createAction = <T extends string, P extends {}>(type: T, props?: P) => (
 );
 
 export enum ActionType {
-  ToggleConfiguration = 'TOGGLE_CONFIGURATION',
   SetPage = 'SET_PAGE',
   ChangeEditor = 'CHANGE_EDITOR',
   ChangeKeybinding = 'CHANGE_KEYBINDING',
   ChangeTheme = 'CHANGE_THEME',
+  ChangePairCharacters = 'CHANGE_PAIR_CHARACTERS',
   ChangeOrientation = 'CHANGE_ORIENTATION',
   ChangeAssemblyFlavor = 'CHANGE_ASSEMBLY_FLAVOR',
   ChangePrimaryAction = 'CHANGE_PRIMARY_ACTION',
@@ -105,9 +112,6 @@ export enum ActionType {
   NotificationSeen = 'NOTIFICATION_SEEN',
 }
 
-export const toggleConfiguration = () =>
-  createAction(ActionType.ToggleConfiguration);
-
 const setPage = (page: Page) =>
   createAction(ActionType.SetPage, { page });
 
@@ -122,6 +126,9 @@ export const changeKeybinding = (keybinding: string) =>
 
 export const changeTheme = (theme: string) =>
   createAction(ActionType.ChangeTheme, { theme });
+
+export const changePairCharacters = (pairCharacters: PairCharacters) =>
+  createAction(ActionType.ChangePairCharacters, { pairCharacters });
 
 export const changeOrientation = (orientation: Orientation) =>
   createAction(ActionType.ChangeOrientation, { orientation });
@@ -420,6 +427,11 @@ export const gotoPosition = (line, column) =>
 const requestFormat = () =>
   createAction(ActionType.RequestFormat);
 
+interface FormatRequestBody {
+  code: string;
+  edition: string;
+}
+
 interface FormatResponseBody {
   code: string;
   stdout: string;
@@ -438,8 +450,7 @@ export function performFormat(): ThunkAction {
   return function(dispatch, getState) {
     dispatch(requestFormat());
 
-    const { code } = getState();
-    const body = { code };
+    const body: FormatRequestBody = formatRequestSelector(getState());
 
     return jsonPost(routes.format, body)
       .then(json => {
@@ -708,8 +719,8 @@ export function showExample(code): ThunkAction {
 }
 
 export type Action =
-  | ReturnType<typeof toggleConfiguration>
   | ReturnType<typeof setPage>
+  | ReturnType<typeof changePairCharacters>
   | ReturnType<typeof changeAssemblyFlavor>
   | ReturnType<typeof changeBacktrace>
   | ReturnType<typeof changeChannel>

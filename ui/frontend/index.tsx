@@ -1,4 +1,5 @@
-import '@babel/polyfill';
+import 'core-js';
+import 'regenerator-runtime/runtime';
 
 import { merge } from 'lodash';
 import React from 'react';
@@ -10,6 +11,7 @@ import * as url from 'url';
 
 import {
   Action,
+  editCode,
   enableFeatureGate,
   gotoPosition,
   performCratesLoad,
@@ -52,6 +54,12 @@ configureRustErrors({
 
 store.dispatch(performCratesLoad());
 store.dispatch(performVersionsLoad());
+
+window.rustPlayground = {
+  setCode: code => {
+    store.dispatch(editCode(code));
+  },
+};
 
 ReactDOM.render(
   <Provider store={store}>

@@ -2,12 +2,14 @@
 authors = ["Jake Goulding <jake.goulding@integer32.com>"]
 name = "top-crates"
 version = "0.1.0"
+edition = "2018"
 
 [dependencies]
-cargo = "0.31.0"
+cargo = "0.43.0"
+itertools = "0.9.0"
 lazy_static = "1.0.0"
-reqwest = "0.9.0"
+reqwest = { version = "0.10.0", features = ["blocking"] }
 serde = "1.0.1"
 serde_derive = "1.0.1"
 serde_json = "1.0.0"
-toml = "0.4.0"
+toml = "0.5.0"
