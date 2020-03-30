@@ -169,6 +169,7 @@ If you've edited `top-crates/crate-modifications.yml`:
 
 ```
 $ cd top-crates
+$ cargo update
 $ cargo run
 ```
 
