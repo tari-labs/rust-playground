@@ -29,21 +29,41 @@ version = "=0.12.1"
 package = "ansi_term"
 version = "=0.11.0"
 
+[dependencies.antidote]
+package = "antidote"
+version = "=1.0.0"
+
+[dependencies.anyhow]
+package = "anyhow"
+version = "=1.0.27"
+
 [dependencies.approx]
 package = "approx"
 version = "=0.3.2"
 
 [dependencies.arc_swap]
 package = "arc-swap"
-version = "=0.4.4"
+version = "=0.4.5"
+
+[dependencies.arc_swap_0_3_11]
+package = "arc-swap"
+version = "=0.3.11"
+
+[dependencies.arrayref]
+package = "arrayref"
+version = "=0.3.6"
 
 [dependencies.arrayvec]
 package = "arrayvec"
 version = "=0.5.1"
 
+[dependencies.arrayvec_0_4_12]
+package = "arrayvec"
+version = "=0.4.12"
+
 [dependencies.async_trait]
 package = "async-trait"
-version = "=0.1.24"
+version = "=0.1.27"
 
 [dependencies.atty]
 package = "atty"
@@ -59,19 +79,39 @@ version = "=0.1.7"
 
 [dependencies.backtrace]
 package = "backtrace"
-version = "=0.3.45"
+version = "=0.3.46"
 
 [dependencies.backtrace_sys]
 package = "backtrace-sys"
-version = "=0.1.34"
+version = "=0.1.35"
+
+[dependencies.base58_monero]
+package = "base58-monero"
+version = "=0.1.1"
 
 [dependencies.base64]
 package = "base64"
 version = "=0.12.0"
 
+[dependencies.base64_0_10_1]
+package = "base64"
+version = "=0.10.1"
+
 [dependencies.base64_0_11_0]
 package = "base64"
 version = "=0.11.0"
+
+[dependencies.bigint]
+package = "bigint"
+version = "=4.4.1"
+
+[dependencies.bincode]
+package = "bincode"
+version = "=1.2.1"
+
+[dependencies.bindgen]
+package = "bindgen"
+version = "=0.37.4"
 
 [dependencies.bit_set]
 package = "bit-set"
@@ -85,13 +125,41 @@ version = "=0.5.1"
 package = "bitflags"
 version = "=1.2.1"
 
+[dependencies.bitflags_0_9_1]
+package = "bitflags"
+version = "=0.9.1"
+
+[dependencies.bitstring]
+package = "bitstring"
+version = "=0.1.1"
+
+[dependencies.bitvec]
+package = "bitvec"
+version = "=0.17.4"
+
+[dependencies.blake2]
+package = "blake2"
+version = "=0.8.1"
+
+[dependencies.blake2_rfc]
+package = "blake2-rfc"
+version = "=0.2.18"
+
 [dependencies.block_buffer]
 package = "block-buffer"
 version = "=0.7.3"
 
+[dependencies.block_buffer_0_2_0]
+package = "block-buffer"
+version = "=0.2.0"
+
 [dependencies.block_padding]
 package = "block-padding"
 version = "=0.1.5"
+
+[dependencies.bs58]
+package = "bs58"
+version = "=0.3.0"
 
 [dependencies.bstr]
 package = "bstr"
@@ -101,9 +169,21 @@ version = "=0.2.12"
 package = "winapi-build"
 version = "=0.1.1"
 
+[dependencies.bulletproofs]
+package = "bulletproofs"
+version = "=2.0.0"
+
+[dependencies.byte_slice_cast]
+package = "byte-slice-cast"
+version = "=0.3.5"
+
 [dependencies.byte_tools]
 package = "byte-tools"
 version = "=0.3.1"
+
+[dependencies.byte_tools_0_2_0]
+package = "byte-tools"
+version = "=0.2.0"
 
 [dependencies.bytemuck]
 package = "bytemuck"
@@ -117,30 +197,78 @@ version = "=1.3.4"
 package = "bytes"
 version = "=0.5.4"
 
+[dependencies.bytes_0_4_12]
+package = "bytes"
+version = "=0.4.12"
+
+[dependencies.c_linked_list]
+package = "c_linked_list"
+version = "=1.1.1"
+
+[dependencies.case]
+package = "case"
+version = "=0.1.0"
+
 [dependencies.cc]
 package = "cc"
 version = "=1.0.50"
 
+[dependencies.cexpr]
+package = "cexpr"
+version = "=0.2.3"
+
 [dependencies.cfg_if]
 package = "cfg-if"
 version = "=0.1.10"
+
+[dependencies.chacha20_poly1305_aead]
+package = "chacha20-poly1305-aead"
+version = "=0.1.2"
 
 [dependencies.chrono]
 package = "chrono"
 version = "=0.4.11"
 features = ["serde"]
 
+[dependencies.cidr]
+package = "cidr"
+version = "=0.1.0"
+
+[dependencies.clang_sys]
+package = "clang-sys"
+version = "=0.23.0"
+
 [dependencies.clap]
 package = "clap"
 version = "=2.33.0"
+
+[dependencies.clear_on_drop]
+package = "clear_on_drop"
+version = "=0.2.3"
 
 [dependencies.color_quant]
 package = "color_quant"
 version = "=1.0.1"
 
+[dependencies.config]
+package = "config"
+version = "=0.9.3"
+
+[dependencies.constant_time_eq]
+package = "constant_time_eq"
+version = "=0.1.5"
+
 [dependencies.crc32fast]
 package = "crc32fast"
 version = "=1.2.0"
+
+[dependencies.croaring]
+package = "croaring"
+version = "=0.3.9"
+
+[dependencies.croaring_sys]
+package = "croaring-sys"
+version = "=0.3.9"
 
 [dependencies.crossbeam]
 package = "crossbeam"
@@ -149,6 +277,10 @@ version = "=0.7.3"
 [dependencies.crossbeam_channel]
 package = "crossbeam-channel"
 version = "=0.4.2"
+
+[dependencies.crossbeam_channel_0_3_9]
+package = "crossbeam-channel"
+version = "=0.3.9"
 
 [dependencies.crossbeam_deque]
 package = "crossbeam-deque"
@@ -166,9 +298,25 @@ version = "=0.2.1"
 package = "crossbeam-utils"
 version = "=0.7.2"
 
+[dependencies.crossbeam_utils_0_6_6]
+package = "crossbeam-utils"
+version = "=0.6.6"
+
+[dependencies.crunchy]
+package = "crunchy"
+version = "=0.2.2"
+
+[dependencies.crunchy_0_1_6]
+package = "crunchy"
+version = "=0.1.6"
+
 [dependencies.crypto_mac]
 package = "crypto-mac"
 version = "=0.7.0"
+
+[dependencies.crypto_mac_0_4_0]
+package = "crypto-mac"
+version = "=0.4.0"
 
 [dependencies.csv]
 package = "csv"
@@ -177,6 +325,18 @@ version = "=1.1.3"
 [dependencies.csv_core]
 package = "csv-core"
 version = "=0.1.10"
+
+[dependencies.curl_sys]
+package = "curl-sys"
+version = "=0.4.30+curl-7.69.1"
+
+[dependencies.curve25519_dalek]
+package = "curve25519-dalek"
+version = "=2.0.0"
+
+[dependencies.curve25519_dalek_1_2_3]
+package = "curve25519-dalek"
+version = "=1.2.3"
 
 [dependencies.data_encoding]
 package = "data-encoding"
@@ -190,13 +350,45 @@ version = "=1.0.4"
 package = "deflate"
 version = "=0.8.3"
 
+[dependencies.derive_error]
+package = "derive-error"
+version = "=0.0.4"
+
+[dependencies.diesel]
+package = "diesel"
+version = "=1.4.4"
+
+[dependencies.diesel_derives]
+package = "diesel_derives"
+version = "=1.4.1"
+
+[dependencies.diesel_migrations]
+package = "diesel_migrations"
+version = "=1.4.0"
+
 [dependencies.digest]
 package = "digest"
 version = "=0.8.1"
 
+[dependencies.digest_0_6_2]
+package = "digest"
+version = "=0.6.2"
+
+[dependencies.dirs]
+package = "dirs"
+version = "=2.0.2"
+
+[dependencies.dirs_sys]
+package = "dirs-sys"
+version = "=0.3.4"
+
 [dependencies.dtoa]
 package = "dtoa"
 version = "=0.4.5"
+
+[dependencies.ed25519_dalek]
+package = "ed25519-dalek"
+version = "=0.9.1"
 
 [dependencies.either]
 package = "either"
@@ -210,9 +402,25 @@ version = "=0.8.22"
 package = "env_logger"
 version = "=0.7.1"
 
+[dependencies.env_logger_0_5_13]
+package = "env_logger"
+version = "=0.5.13"
+
 [dependencies.error_chain]
 package = "error-chain"
 version = "=0.12.2"
+
+[dependencies.ethbloom]
+package = "ethbloom"
+version = "=0.5.3"
+
+[dependencies.ethereum_types]
+package = "ethereum-types"
+version = "=0.4.2"
+
+[dependencies.ethereum_types_serialize]
+package = "ethereum-types-serialize"
+version = "=0.2.2"
 
 [dependencies.failure]
 package = "failure"
@@ -238,13 +446,25 @@ version = "=0.1.9"
 package = "filetime"
 version = "=0.2.8"
 
+[dependencies.fixed_hash]
+package = "fixed-hash"
+version = "=0.4.0"
+
+[dependencies.fixed_hash_0_2_5]
+package = "fixed-hash"
+version = "=0.2.5"
+
+[dependencies.fixed_hash_0_3_2]
+package = "fixed-hash"
+version = "=0.3.2"
+
 [dependencies.fixedbitset]
 package = "fixedbitset"
 version = "=0.2.0"
 
 [dependencies.flate2]
 package = "flate2"
-version = "=1.0.13"
+version = "=1.0.14"
 
 [dependencies.fnv]
 package = "fnv"
@@ -266,6 +486,10 @@ version = "=0.1.4"
 package = "futures"
 version = "=0.3.4"
 features = ["compat", "io-compat", "thread-pool"]
+
+[dependencies.futures_0_1_29]
+package = "futures"
+version = "=0.1.29"
 
 [dependencies.futures_channel]
 package = "futures-channel"
@@ -295,9 +519,17 @@ version = "=0.3.4"
 package = "futures-task"
 version = "=0.3.4"
 
+[dependencies.futures_test]
+package = "futures-test"
+version = "=0.3.4"
+
 [dependencies.futures_util]
 package = "futures-util"
 version = "=0.3.4"
+
+[dependencies.gcc]
+package = "gcc"
+version = "=0.3.55"
 
 [dependencies.generic_array]
 package = "generic-array"
@@ -307,6 +539,14 @@ version = "=0.13.2"
 package = "generic-array"
 version = "=0.12.3"
 
+[dependencies.generic_array_0_8_3]
+package = "generic-array"
+version = "=0.8.3"
+
+[dependencies.get_if_addrs]
+package = "get_if_addrs"
+version = "=0.5.3"
+
 [dependencies.getrandom]
 package = "getrandom"
 version = "=0.1.14"
@@ -315,17 +555,49 @@ version = "=0.1.14"
 package = "gif"
 version = "=0.10.3"
 
+[dependencies.git2]
+package = "git2"
+version = "=0.8.0"
+
 [dependencies.glob]
 package = "glob"
 version = "=0.3.0"
 
+[dependencies.glob_0_2_11]
+package = "glob"
+version = "=0.2.11"
+
 [dependencies.h2]
 package = "h2"
-version = "=0.2.2"
+version = "=0.2.3"
+
+[dependencies.heapsize]
+package = "heapsize"
+version = "=0.4.2"
+
+[dependencies.heck]
+package = "heck"
+version = "=0.3.1"
+
+[dependencies.hex]
+package = "hex"
+version = "=0.4.2"
+
+[dependencies.hex_0_3_2]
+package = "hex"
+version = "=0.3.2"
 
 [dependencies.hmac]
 package = "hmac"
 version = "=0.7.1"
+
+[dependencies.hmac_0_4_2]
+package = "hmac"
+version = "=0.4.2"
+
+[dependencies.hmac_drbg]
+package = "hmac-drbg"
+version = "=0.1.2"
 
 [dependencies.html5ever]
 package = "html5ever"
@@ -333,7 +605,7 @@ version = "=0.23.0"
 
 [dependencies.http]
 package = "http"
-version = "=0.2.0"
+version = "=0.2.1"
 
 [dependencies.http_body]
 package = "http-body"
@@ -349,7 +621,7 @@ version = "=1.3.0"
 
 [dependencies.hyper]
 package = "hyper"
-version = "=0.13.3"
+version = "=0.13.4"
 
 [dependencies.hyper_tls]
 package = "hyper-tls"
@@ -359,9 +631,17 @@ version = "=0.4.1"
 package = "idna"
 version = "=0.2.0"
 
+[dependencies.idna_0_1_5]
+package = "idna"
+version = "=0.1.5"
+
 [dependencies.image]
 package = "image"
-version = "=0.23.1"
+version = "=0.23.2"
+
+[dependencies.impl_codec]
+package = "impl-codec"
+version = "=0.4.2"
 
 [dependencies.indexmap]
 package = "indexmap"
@@ -370,6 +650,10 @@ version = "=1.3.2"
 [dependencies.inflate]
 package = "inflate"
 version = "=0.4.5"
+
+[dependencies.ini]
+package = "rust-ini"
+version = "=0.13.0"
 
 [dependencies.iovec]
 package = "iovec"
@@ -391,6 +675,18 @@ version = "=0.4.5"
 package = "jpeg-decoder"
 version = "=0.1.18"
 
+[dependencies.keccak]
+package = "keccak"
+version = "=0.1.0"
+
+[dependencies.keccak_hash]
+package = "keccak-hash"
+version = "=0.3.0"
+
+[dependencies.keccak_hash_0_1_2]
+package = "keccak-hash"
+version = "=0.1.2"
+
 [dependencies.kernel32]
 package = "kernel32-sys"
 version = "=0.2.2"
@@ -399,21 +695,57 @@ version = "=0.2.2"
 package = "lazy_static"
 version = "=1.4.0"
 
+[dependencies.lazy_static_0_2_11]
+package = "lazy_static"
+version = "=0.2.11"
+
 [dependencies.libc]
 package = "libc"
-version = "=0.2.67"
+version = "=0.2.68"
+
+[dependencies.libgit2_sys]
+package = "libgit2-sys"
+version = "=0.7.11"
+
+[dependencies.liblmdb_sys]
+package = "liblmdb-sys"
+version = "=0.2.2"
+
+[dependencies.libloading]
+package = "libloading"
+version = "=0.5.2"
 
 [dependencies.libm]
 package = "libm"
 version = "=0.2.1"
 
+[dependencies.libsecp256k1_rs]
+package = "libsecp256k1-rs"
+version = "=0.2.4"
+
 [dependencies.libsqlite3_sys]
 package = "libsqlite3-sys"
 version = "=0.17.1"
 
+[dependencies.libssh2_sys]
+package = "libssh2-sys"
+version = "=0.2.16"
+
+[dependencies.libz_sys]
+package = "libz-sys"
+version = "=1.0.25"
+
 [dependencies.linked_hash_map]
 package = "linked-hash-map"
 version = "=0.5.2"
+
+[dependencies.linked_hash_map_0_3_0]
+package = "linked-hash-map"
+version = "=0.3.0"
+
+[dependencies.lmdb_zero]
+package = "lmdb-zero"
+version = "=0.4.4"
 
 [dependencies.lock_api]
 package = "lock_api"
@@ -426,6 +758,10 @@ version = "=0.4.8"
 [dependencies.log4rs]
 package = "log4rs"
 version = "=0.11.0"
+
+[dependencies.log4rs_0_8_3]
+package = "log4rs"
+version = "=0.8.3"
 
 [dependencies.log_mdc]
 package = "log-mdc"
@@ -467,13 +803,29 @@ version = "=0.7.0"
 package = "memchr"
 version = "=2.3.3"
 
+[dependencies.memchr_1_0_2]
+package = "memchr"
+version = "=1.0.2"
+
 [dependencies.memmap]
 package = "memmap"
 version = "=0.7.0"
 
 [dependencies.memoffset]
 package = "memoffset"
-version = "=0.5.3"
+version = "=0.5.4"
+
+[dependencies.merlin]
+package = "merlin"
+version = "=2.0.0"
+
+[dependencies.migrations_internals]
+package = "migrations_internals"
+version = "=1.4.1"
+
+[dependencies.migrations_macros]
+package = "migrations_macros"
+version = "=1.4.2"
 
 [dependencies.mime]
 package = "mime"
@@ -499,6 +851,14 @@ version = "=0.6.21"
 package = "mio-uds"
 version = "=0.6.7"
 
+[dependencies.monero]
+package = "monero"
+version = "=0.5.0"
+
+[dependencies.multimap]
+package = "multimap"
+version = "=0.8.1"
+
 [dependencies.nalgebra]
 package = "nalgebra"
 version = "=0.20.0"
@@ -515,9 +875,29 @@ version = "=0.13.0"
 package = "net2"
 version = "=0.2.33"
 
+[dependencies.newtype_ops]
+package = "newtype-ops"
+version = "=0.1.4"
+
 [dependencies.nodrop]
 package = "nodrop"
 version = "=0.1.14"
+
+[dependencies.nohash_hasher]
+package = "nohash-hasher"
+version = "=0.2.0"
+
+[dependencies.nom]
+package = "nom"
+version = "=5.1.1"
+
+[dependencies.nom_3_2_1]
+package = "nom"
+version = "=3.2.1"
+
+[dependencies.nom_4_2_3]
+package = "nom"
+version = "=4.2.3"
 
 [dependencies.num]
 package = "num"
@@ -545,31 +925,43 @@ version = "=0.1.40"
 
 [dependencies.num_rational]
 package = "num-rational"
-version = "=0.2.3"
+version = "=0.2.4"
 
 [dependencies.num_traits]
 package = "num-traits"
 version = "=0.2.11"
 
+[dependencies.num_traits_0_1_43]
+package = "num-traits"
+version = "=0.1.43"
+
 [dependencies.opaque_debug]
 package = "opaque-debug"
 version = "=0.2.3"
-
-[dependencies.openssl]
-package = "openssl"
-version = "=0.10.28"
 
 [dependencies.openssl_probe]
 package = "openssl-probe"
 version = "=0.1.2"
 
-[dependencies.openssl_sys]
-package = "openssl-sys"
-version = "=0.9.54"
-
 [dependencies.ordered_float]
 package = "ordered-float"
 version = "=1.0.2"
+
+[dependencies.packed_simd]
+package = "packed_simd"
+version = "=0.3.3"
+
+[dependencies.parity_multiaddr]
+package = "parity-multiaddr"
+version = "=0.7.3"
+
+[dependencies.parity_multihash]
+package = "parity-multihash"
+version = "=0.2.3"
+
+[dependencies.parity_scale_codec]
+package = "parity-scale-codec"
+version = "=1.3.0"
 
 [dependencies.parking_lot]
 package = "parking_lot"
@@ -579,9 +971,17 @@ version = "=0.10.0"
 package = "parking_lot_core"
 version = "=0.7.0"
 
+[dependencies.peeking_take_while]
+package = "peeking_take_while"
+version = "=0.1.2"
+
 [dependencies.percent_encoding]
 package = "percent-encoding"
 version = "=2.1.0"
+
+[dependencies.percent_encoding_1_0_1]
+package = "percent-encoding"
+version = "=1.0.1"
 
 [dependencies.petgraph]
 package = "petgraph"
@@ -641,7 +1041,7 @@ version = "=0.17.2"
 
 [dependencies.postgres_protocol]
 package = "postgres-protocol"
-version = "=0.5.0"
+version = "=0.5.1"
 
 [dependencies.postgres_types]
 package = "postgres-types"
@@ -655,9 +1055,18 @@ version = "=0.2.6"
 package = "precomputed-hash"
 version = "=0.1.1"
 
+[dependencies.primitive_types]
+package = "primitive-types"
+version = "=0.5.1"
+
 [dependencies.proc_macro2]
 package = "proc-macro2"
-version = "=1.0.9"
+version = "=1.0.10"
+features = ["span-locations"]
+
+[dependencies.proc_macro2_0_3_5]
+package = "proc-macro2"
+version = "=0.3.5"
 
 [dependencies.proc_macro2_0_4_30]
 package = "proc-macro2"
@@ -665,11 +1074,27 @@ version = "=0.4.30"
 
 [dependencies.proc_macro_hack]
 package = "proc-macro-hack"
-version = "=0.5.11"
+version = "=0.5.14"
 
 [dependencies.proc_macro_nested]
 package = "proc-macro-nested"
-version = "=0.1.3"
+version = "=0.1.4"
+
+[dependencies.prost]
+package = "prost"
+version = "=0.6.1"
+
+[dependencies.prost_build]
+package = "prost-build"
+version = "=0.6.1"
+
+[dependencies.prost_derive]
+package = "prost-derive"
+version = "=0.6.1"
+
+[dependencies.prost_types]
+package = "prost-types"
+version = "=0.6.1"
 
 [dependencies.quick_error]
 package = "quick-error"
@@ -679,13 +1104,33 @@ version = "=1.2.3"
 package = "quote"
 version = "=1.0.3"
 
+[dependencies.quote_0_3_15]
+package = "quote"
+version = "=0.3.15"
+
+[dependencies.quote_0_5_2]
+package = "quote"
+version = "=0.5.2"
+
 [dependencies.quote_0_6_13]
 package = "quote"
 version = "=0.6.13"
 
+[dependencies.radium]
+package = "radium"
+version = "=0.3.0"
+
 [dependencies.rand]
 package = "rand"
 version = "=0.7.3"
+
+[dependencies.rand_0_4_6]
+package = "rand"
+version = "=0.4.6"
+
+[dependencies.rand_0_5_6]
+package = "rand"
+version = "=0.5.6"
 
 [dependencies.rand_0_6_5]
 package = "rand"
@@ -751,6 +1196,10 @@ version = "=0.2.0"
 package = "rand_xorshift"
 version = "=0.1.1"
 
+[dependencies.randomx_rs]
+package = "randomx-rs"
+version = "=0.1.2"
+
 [dependencies.rawpointer]
 package = "rawpointer"
 version = "=0.2.1"
@@ -765,7 +1214,7 @@ version = "=1.7.0"
 
 [dependencies.regex]
 package = "regex"
-version = "=1.3.5"
+version = "=1.3.6"
 
 [dependencies.regex_automata]
 package = "regex-automata"
@@ -786,7 +1235,15 @@ features = ["blocking", "cookies", "json"]
 
 [dependencies.ring]
 package = "ring"
-version = "=0.16.11"
+version = "=0.16.12"
+
+[dependencies.rmp]
+package = "rmp"
+version = "=0.8.9"
+
+[dependencies.rmp_serde]
+package = "rmp-serde"
+version = "=0.13.7"
 
 [dependencies.rusqlite]
 package = "rusqlite"
@@ -795,6 +1252,10 @@ version = "=0.21.0"
 [dependencies.rustc_demangle]
 package = "rustc-demangle"
 version = "=0.1.16"
+
+[dependencies.rustc_hex]
+package = "rustc-hex"
+version = "=2.1.0"
 
 [dependencies.rustc_serialize]
 package = "rustc-serialize"
@@ -842,17 +1303,37 @@ version = "=0.7.0"
 
 [dependencies.serde]
 package = "serde"
-version = "=1.0.104"
+version = "=1.0.105"
 features = ["derive", "rc"]
+
+[dependencies.serde_0_8_23]
+package = "serde"
+version = "=0.8.23"
+
+[dependencies.serde_big_array]
+package = "serde-big-array"
+version = "=0.2.0"
 
 [dependencies.serde_derive]
 package = "serde_derive"
-version = "=1.0.104"
+version = "=1.0.105"
+
+[dependencies.serde_hjson]
+package = "serde-hjson"
+version = "=0.8.2"
 
 [dependencies.serde_json]
 package = "serde_json"
-version = "=1.0.48"
+version = "=1.0.50"
 features = ["raw_value"]
+
+[dependencies.serde_repr]
+package = "serde_repr"
+version = "=0.1.5"
+
+[dependencies.serde_test]
+package = "serde_test"
+version = "=0.8.23"
 
 [dependencies.serde_urlencoded]
 package = "serde_urlencoded"
@@ -862,17 +1343,37 @@ version = "=0.6.1"
 package = "serde-value"
 version = "=0.6.0"
 
+[dependencies.serde_value_0_5_3]
+package = "serde-value"
+version = "=0.5.3"
+
 [dependencies.serde_yaml]
 package = "serde_yaml"
 version = "=0.8.11"
+
+[dependencies.sha1]
+package = "sha-1"
+version = "=0.8.2"
 
 [dependencies.sha2]
 package = "sha2"
 version = "=0.8.1"
 
+[dependencies.sha2_0_6_0]
+package = "sha2"
+version = "=0.6.0"
+
+[dependencies.sha3]
+package = "sha3"
+version = "=0.8.2"
+
+[dependencies.signal_hook_registry]
+package = "signal-hook-registry"
+version = "=1.2.0"
+
 [dependencies.siphasher]
 package = "siphasher"
-version = "=0.3.1"
+version = "=0.3.2"
 
 [dependencies.siphasher_0_2_3]
 package = "siphasher"
@@ -886,6 +1387,10 @@ version = "=0.4.2"
 package = "smallvec"
 version = "=1.2.0"
 
+[dependencies.snow]
+package = "snow"
+version = "=0.6.2"
+
 [dependencies.spin]
 package = "spin"
 version = "=0.5.2"
@@ -893,6 +1398,14 @@ version = "=0.5.2"
 [dependencies.standback]
 package = "standback"
 version = "=0.2.1"
+
+[dependencies.static_assertions]
+package = "static_assertions"
+version = "=1.1.0"
+
+[dependencies.static_assertions_0_2_5]
+package = "static_assertions"
+version = "=0.2.5"
 
 [dependencies.string_cache]
 package = "string_cache"
@@ -918,27 +1431,127 @@ version = "=0.10.0"
 package = "strsim"
 version = "=0.8.0"
 
+[dependencies.strum]
+package = "strum"
+version = "=0.17.1"
+
+[dependencies.strum_macros]
+package = "strum_macros"
+version = "=0.17.1"
+
 [dependencies.subtle]
+package = "subtle"
+version = "=2.2.2"
+
+[dependencies.subtle_1_0_0]
 package = "subtle"
 version = "=1.0.0"
 
+[dependencies.supercow]
+package = "supercow"
+version = "=0.1.0"
+
 [dependencies.syn]
 package = "syn"
-version = "=1.0.16"
+version = "=1.0.17"
 features = ["extra-traits", "fold", "full", "visit", "visit-mut"]
+
+[dependencies.syn_0_11_11]
+package = "syn"
+version = "=0.11.11"
 
 [dependencies.syn_0_15_44]
 package = "syn"
 version = "=0.15.44"
 features = ["extra-traits", "fold", "full", "visit", "visit-mut"]
 
+[dependencies.synom]
+package = "synom"
+version = "=0.11.3"
+
 [dependencies.synstructure]
 package = "synstructure"
 version = "=0.12.3"
 
+[dependencies.syslog]
+package = "syslog"
+version = "=5.0.0"
+
 [dependencies.tar]
 package = "tar"
 version = "=0.4.26"
+
+[dependencies.tari_broadcast_channel]
+package = "tari_broadcast_channel"
+version = "=0.1.0"
+
+[dependencies.tari_common]
+package = "tari_common"
+version = "=0.0.10"
+
+[dependencies.tari_comms]
+package = "tari_comms"
+version = "=0.0.10"
+
+[dependencies.tari_comms_dht]
+package = "tari_comms_dht"
+version = "=0.0.10"
+
+[dependencies.tari_core]
+package = "tari_core"
+version = "=0.0.10"
+
+[dependencies.tari_crypto]
+package = "tari_crypto"
+version = "=0.3.1"
+
+[dependencies.tari_infra_derive]
+package = "tari_infra_derive"
+version = "=0.0.10"
+
+[dependencies.tari_key_manager]
+package = "tari_key_manager"
+version = "=0.0.10"
+
+[dependencies.tari_mmr]
+package = "tari_mmr"
+version = "=0.0.10"
+
+[dependencies.tari_p2p]
+package = "tari_p2p"
+version = "=0.0.10"
+
+[dependencies.tari_pubsub]
+package = "tari_pubsub"
+version = "=0.1.0"
+
+[dependencies.tari_service_framework]
+package = "tari_service_framework"
+version = "=0.0.10"
+
+[dependencies.tari_shutdown]
+package = "tari_shutdown"
+version = "=0.0.10"
+
+[dependencies.tari_storage]
+package = "tari_storage"
+version = "=0.0.10"
+
+[dependencies.tari_test_utils]
+package = "tari_test_utils"
+version = "=0.0.10"
+
+[dependencies.tari_utilities]
+package = "tari_utilities"
+version = "=0.1.2"
+
+[dependencies.tari_wallet]
+package = "tari_wallet"
+version = "=0.0.10"
+
+[dependencies.tempdir]
+package = "tempdir"
+version = "=0.3.7"
 
 [dependencies.tempfile]
 package = "tempfile"
@@ -955,6 +1568,14 @@ version = "=1.1.0"
 [dependencies.textwrap]
 package = "textwrap"
 version = "=0.11.0"
+
+[dependencies.thiserror]
+package = "thiserror"
+version = "=1.0.14"
+
+[dependencies.thiserror_impl]
+package = "thiserror-impl"
+version = "=1.0.14"
 
 [dependencies.thread_id]
 package = "thread-id"
@@ -988,6 +1609,10 @@ version = "=0.1.0"
 package = "time-macros-impl"
 version = "=0.1.0"
 
+[dependencies.tiny_keccak]
+package = "tiny-keccak"
+version = "=1.5.0"
+
 [dependencies.tokio]
 package = "tokio"
 version = "=0.2.13"
@@ -1003,7 +1628,7 @@ version = "=0.3.0"
 
 [dependencies.tokio_util]
 package = "tokio-util"
-version = "=0.3.0"
+version = "=0.3.1"
 
 [dependencies.tokio_util_0_2_0]
 package = "tokio-util"
@@ -1013,9 +1638,65 @@ version = "=0.2.0"
 package = "toml"
 version = "=0.5.6"
 
+[dependencies.toml_0_4_10]
+package = "toml"
+version = "=0.4.10"
+
+[dependencies.tower]
+package = "tower"
+version = "=0.3.1"
+
+[dependencies.tower_buffer]
+package = "tower-buffer"
+version = "=0.3.0"
+
+[dependencies.tower_discover]
+package = "tower-discover"
+version = "=0.3.0"
+
+[dependencies.tower_layer]
+package = "tower-layer"
+version = "=0.3.0"
+
+[dependencies.tower_limit]
+package = "tower-limit"
+version = "=0.3.1"
+
+[dependencies.tower_load]
+package = "tower-load"
+version = "=0.3.0"
+
+[dependencies.tower_load_shed]
+package = "tower-load-shed"
+version = "=0.3.0"
+
+[dependencies.tower_retry]
+package = "tower-retry"
+version = "=0.3.0"
+
 [dependencies.tower_service]
 package = "tower-service"
 version = "=0.3.0"
+
+[dependencies.tower_timeout]
+package = "tower-timeout"
+version = "=0.3.0"
+
+[dependencies.tower_util]
+package = "tower-util"
+version = "=0.3.1"
+
+[dependencies.tracing]
+package = "tracing"
+version = "=0.1.13"
+
+[dependencies.tracing_attributes]
+package = "tracing-attributes"
+version = "=0.1.7"
+
+[dependencies.tracing_core]
+package = "tracing-core"
+version = "=0.1.10"
 
 [dependencies.traitobject]
 package = "traitobject"
@@ -1025,6 +1706,10 @@ version = "=0.1.0"
 package = "try-lock"
 version = "=0.2.2"
 
+[dependencies.ttl_cache]
+package = "ttl_cache"
+version = "=0.5.1"
+
 [dependencies.typemap]
 package = "typemap"
 version = "=0.3.3"
@@ -1032,6 +1717,14 @@ version = "=0.3.3"
 [dependencies.typenum]
 package = "typenum"
 version = "=1.11.2"
+
+[dependencies.uint]
+package = "uint"
+version = "=0.8.2"
+
+[dependencies.uint_0_4_1]
+package = "uint"
+version = "=0.4.1"
 
 [dependencies.unicase]
 package = "unicase"
@@ -1057,6 +1750,10 @@ version = "=0.1.7"
 package = "unicode-xid"
 version = "=0.2.0"
 
+[dependencies.unicode_xid_0_0_4]
+package = "unicode-xid"
+version = "=0.0.4"
+
 [dependencies.unicode_xid_0_1_0]
 package = "unicode-xid"
 version = "=0.1.0"
@@ -1065,6 +1762,10 @@ version = "=0.1.0"
 package = "unsafe-any"
 version = "=0.4.2"
 
+[dependencies.unsigned_varint]
+package = "unsigned-varint"
+version = "=0.3.2"
+
 [dependencies.untrusted]
 package = "untrusted"
 version = "=0.7.0"
@@ -1072,6 +1773,10 @@ version = "=0.7.0"
 [dependencies.url]
 package = "url"
 version = "=2.1.1"
+
+[dependencies.url_1_7_2]
+package = "url"
+version = "=1.7.2"
 
 [dependencies.utf8]
 package = "utf-8"
@@ -1094,6 +1799,10 @@ version = "=0.8.1"
 package = "version_check"
 version = "=0.9.1"
 
+[dependencies.version_check_0_1_5]
+package = "version_check"
+version = "=0.1.5"
+
 [dependencies.void]
 package = "void"
 version = "=1.0.2"
@@ -1106,6 +1815,14 @@ version = "=2.3.1"
 package = "want"
 version = "=0.3.0"
 
+[dependencies.which]
+package = "which"
+version = "=3.1.1"
+
+[dependencies.which_1_0_5]
+package = "which"
+version = "=1.0.5"
+
 [dependencies.winapi]
 package = "winapi"
 version = "=0.3.8"
@@ -1114,6 +1831,10 @@ version = "=0.3.8"
 package = "winapi"
 version = "=0.2.8"
 
+[dependencies.x25519_dalek]
+package = "x25519-dalek"
+version = "=0.6.0"
+
 [dependencies.xattr]
 package = "xattr"
 version = "=0.2.2"
@@ -1121,3 +1842,15 @@ version = "=0.2.2"
 [dependencies.yaml_rust]
 package = "yaml-rust"
 version = "=0.4.3"
+
+[dependencies.yamux]
+package = "yamux"
+version = "=0.4.5"
+
+[dependencies.zeroize]
+package = "zeroize"
+version = "=1.1.0"
+
+[dependencies.zeroize_derive]
+package = "zeroize_derive"
+version = "=1.0.0"
