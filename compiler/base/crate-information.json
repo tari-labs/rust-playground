@@ -31,7 +31,7 @@
   },
   {
     "name": "anyhow",
-    "version": "1.0.27",
+    "version": "1.0.28",
     "id": "anyhow"
   },
   {
@@ -686,7 +686,7 @@
   },
   {
     "name": "h2",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "id": "h2"
   },
   {

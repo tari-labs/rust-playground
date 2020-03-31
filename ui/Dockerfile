@@ -1,6 +1,6 @@
-FROM taridocker/rust-nightly
-ARG DOCKER=docker-18.06.1-ce
-
+FROM quay.io/tarilabs/rust_tari-build-with-deps:nightly-2020-01-08
+ARG DOCKER=docker-19.03.8
+USER root
 ADD https://download.docker.com/linux/static/stable/x86_64/$DOCKER.tgz /
 RUN cd /usr/bin/ && tar --strip-components=1 -xzf /$DOCKER.tgz docker/docker
 
@@ -10,7 +10,7 @@ COPY src /app/src/
 WORKDIR /app
 
 RUN cargo build --release
-RUN cargo install
+RUN cargo install --path .
 
 COPY frontend/build /frontend
 ENV TMPDIR=/playground \

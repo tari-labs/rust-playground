@@ -35,7 +35,7 @@ version = "=1.0.0"
 
 [dependencies.anyhow]
 package = "anyhow"
-version = "=1.0.27"
+version = "=1.0.28"
 
 [dependencies.approx]
 package = "approx"
@@ -569,7 +569,7 @@ version = "=0.2.11"
 
 [dependencies.h2]
 package = "h2"
-version = "=0.2.3"
+version = "=0.2.4"
 
 [dependencies.heapsize]
 package = "heapsize"
