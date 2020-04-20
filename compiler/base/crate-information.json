@@ -391,7 +391,7 @@
   },
   {
     "name": "curl-sys",
-    "version": "0.4.30+curl-7.69.1",
+    "version": "0.4.30",
     "id": "curl_sys"
   },
   {

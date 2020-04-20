@@ -224,9 +224,10 @@ impl Sandbox {
 
     pub fn crates(&self) -> Result<Vec<CrateInformation>> {
         let mut command = basic_secure_docker_command();
-        command.args(&[Channel::Stable.container_name()]);
+        command.args(&[Channel::Nightly.container_name()]);
         command.args(&["cat", "crate-information.json"]);
 
+        log::debug!("crates command is {:?}", command);
         let output = run_command_with_timeout(command)?;
 
         let crate_info: Vec<CrateInformationInner> = ::serde_json::from_slice(&output.stdout).context(UnableToParseCrateInformation)?;
